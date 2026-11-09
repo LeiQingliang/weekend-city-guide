@@ -10,7 +10,7 @@ body {
 }
 .header {
   background: #fffefbf5;
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
   border-bottom: 1px solid #e6e8df;
 }
 .main {
@@ -314,12 +314,14 @@ body {
     transform 0.2s;
   color: #274334;
   padding: 0;
+  height: 184px;
 }
 .edition-theme:hover {
   box-shadow: 0 7px 22px #2138220d;
   transform: translateY(-3px);
 }
 .edition-theme > img {
+  height: 100%;
   width: 30%;
   object-fit: cover;
   min-width: 95px;
@@ -478,8 +480,47 @@ body {
 .data-note {
   line-height: 1.8;
 }
+.journal-actions .journal-to-guide {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #285639;
+  border: 1px solid #dce5d4;
+  background: #f1f5e8;
+  border-radius: 5px;
+  font-size: 12px;
+  padding: 7px 9px;
+  margin-left: auto;
+  min-height: 34px;
+}
+.journal-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .proposal-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.dialog:has(.proposal-preview) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dialog:has(.proposal-preview) > .dialog-toolbar {
+  flex-shrink: 0;
+}
+.proposal-content {
+  overflow: auto;
+  min-height: 0;
   padding: 30px;
+}
+.proposal-content > p {
+  font-size: 14px;
+  color: #5a6a5b;
+  line-height: 1.8;
 }
 .proposal-preview h2 {
   font-size: 31px;
@@ -606,7 +647,11 @@ body {
 .proposal-actions {
   display: flex;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 0;
+  padding: 16px 30px;
+  flex-shrink: 0;
+  background: #fffefb;
+  border-top: 1px solid #e2e7db;
   justify-content: space-between;
 }
 .proposal-actions button {
@@ -856,6 +901,10 @@ body {
     min-width: 80px;
     max-height: 155px;
   }
+  .edition-theme {
+    height: auto;
+    min-height: 145px;
+  }
   .edition-theme-copy {
     padding: 14px 15px;
     gap: 6px;
@@ -901,6 +950,9 @@ body {
     font-size: 28px;
   }
   .proposal-preview {
+    padding: 0;
+  }
+  .proposal-content {
     padding: 22px 18px;
   }
   .proposal-preview h2 {
@@ -927,7 +979,8 @@ body {
     font-size: 13px;
   }
   .proposal-actions {
-    flex-direction: column-reverse;
+    flex-direction: row;
+    padding: 13px 18px;
   }
   .proposal-facts {
     gap: 12px;

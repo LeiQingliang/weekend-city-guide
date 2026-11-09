@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -75,6 +75,13 @@ export default function WeekendStudio({
   const [step, setStep] = useState(1);
   const [resultMode, setResultMode] = useState(false);
   const [error, setError] = useState("");
+  const studioRef = useRef<HTMLElement>(null);
+  const proposalRefs = useRef<Record<string, HTMLElement | null>>({});
+  useEffect(() => {
+    studioRef.current
+      ?.closest(".dialog")
+      ?.scrollTo({ top: 0, behavior: "auto" });
+  }, [step, resultMode]);
   const proposals = useMemo(
     () => (resultMode ? recommendWeekendProposals(brief) : []),
     [brief, resultMode],
@@ -113,9 +120,16 @@ export default function WeekendStudio({
   };
   const adjust = (values: Partial<WeekendBrief>) =>
     setBrief((previous) => ({ ...previous, ...values }));
+  const focusProposal = (id: string) => {
+    const card = proposalRefs.current[id];
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    card.focus({ preventScroll: true });
+  };
 
   return (
     <section
+      ref={studioRef}
       className="weekend-studio"
       aria-labelledby="studio-title"
       data-tour="decision-studio"
@@ -533,6 +547,40 @@ export default function WeekendStudio({
           {proposals.length ? (
             <>
               <div
+                className="studio-mobile-comparison"
+                aria-label="方案费用与时长速览"
+              >
+                <p>先看花费与时间，再选一份细看。</p>
+                <div>
+                  {proposals.map((proposal, index) => (
+                    <button
+                      type="button"
+                      key={proposal.id}
+                      className={index === 0 ? "preferred" : ""}
+                      aria-controls={`studio-proposal-${proposal.id}`}
+                      aria-label={`查看方案 ${index + 1}：${proposal.title}，每人 ${money(proposal.totalPerPerson)}，约 ${duration(proposal.durationMinutes)}`}
+                      onClick={() => focusProposal(proposal.id)}
+                    >
+                      <span className="studio-summary-title">
+                        {proposal.title}
+                      </span>
+                      <span className="studio-summary-price">
+                        <strong>{money(proposal.totalPerPerson)}</strong>
+                        <small>/ 人</small>
+                      </span>
+                      <span className="studio-summary-included">
+                        含餐饮与交通
+                      </span>
+                      <span className="studio-summary-duration">
+                        <Clock3 size={13} />
+                        {duration(proposal.durationMinutes)}
+                        <ArrowRight size={14} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div
                 className={`studio-proposals ${proposals.length === 1 ? "single" : ""}`}
               >
                 {proposals.map((proposal, index) => (
@@ -541,6 +589,9 @@ export default function WeekendStudio({
                     proposal={proposal}
                     index={index}
                     people={brief.people}
+                    articleRef={(node) => {
+                      proposalRefs.current[proposal.id] = node;
+                    }}
                     onAdopt={() => onAdopt(proposal)}
                   />
                 ))}
@@ -628,11 +679,13 @@ function ProposalCard({
   proposal,
   index,
   people,
+  articleRef,
   onAdopt,
 }: {
   proposal: WeekendProposal;
   index: number;
   people: number;
+  articleRef: (node: HTMLElement | null) => void;
   onAdopt: () => void;
 }) {
   const items = proposal.activityIds.map(
@@ -640,13 +693,17 @@ function ProposalCard({
   );
   return (
     <article
+      id={`studio-proposal-${proposal.id}`}
+      ref={articleRef}
+      tabIndex={-1}
+      aria-labelledby={`studio-proposal-${proposal.id}-title`}
       className={`studio-proposal ${index === 0 ? "primary-proposal" : "alternate-proposal"}`}
     >
       <div className="studio-proposal-label">
         <span>{index === 0 ? "为你优先考虑" : "也可以这样过"}</span>
         <b>{String(index + 1).padStart(2, "0")}</b>
       </div>
-      <h3>{proposal.title}</h3>
+      <h3 id={`studio-proposal-${proposal.id}-title`}>{proposal.title}</h3>
       <p className="studio-proposal-subtitle">
         {items.map((item) => item.category).join(" + ")} ·{" "}
         {proposal.activityIds.length} 站城市探索

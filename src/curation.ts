@@ -196,11 +196,19 @@ function toProposal(
       : brief.people >= 3 && companionMatches.length
         ? `${brief.people} 人同行，安排可以一起体验的${companionMatches.join("、")}`
         : `${brief.people} 人同行，共用一份路线与时间安排`;
+  const actionLabels = {
+    展览: "看一场展",
+    市集: "逛个市集",
+    户外: "去散个步",
+    演出: "听一场现场",
+  };
+  const routeTitle =
+    candidate.items.length === 1
+      ? candidate.items[0].title
+      : `${actionLabels[candidate.items[0].category]}，再${actionLabels[candidate.items[1].category]}`;
   const title =
     index === 0
-      ? brief.pace === "relaxed"
-        ? "慢一点，也很尽兴"
-        : "这一趟，刚刚好"
+      ? routeTitle
       : savings > 0
         ? "少花一点，多留点余地"
         : first && candidate.duration < first.duration

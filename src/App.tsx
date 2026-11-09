@@ -11,6 +11,7 @@ import ProductGuide, { DemoJourneyBar } from "./components/ReviewerGuide";
 import type { WeekendProposal } from "./curation";
 import {
   buildItinerary,
+  createRainAlternative,
   defaultPlanOptions,
   parseBrief,
   type PlanOptions,
@@ -260,6 +261,10 @@ export default function Home() {
   } | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [editingGuide, setEditingGuide] = useState<Guide | null>(null);
+  const [guideDraft, setGuideDraft] = useState<{
+    title: string;
+    text: string;
+  } | null>(null);
   const [proposalPreview, setProposalPreview] =
     useState<WeekendProposal | null>(null);
   const [demo, setDemo] = useState(false);
@@ -465,6 +470,7 @@ export default function Home() {
     setSharedPlan(null);
     setConfirmation(null);
     setEditingGuide(null);
+    setGuideDraft(null);
     setProposalPreview(null);
     if (/(?:invite|guide|plan)=/.test(location.hash))
       history.replaceState(null, "", siteUrl());
@@ -746,36 +752,18 @@ export default function Home() {
       return next;
     });
   const swapRain = () => {
-    const indoor = activities.filter(
-      (a) => a.city === planned[0]?.city && a.indoor,
-    );
-    const used = new Set(
-      plan.filter((id) => activities.find((a) => a.id === id)?.indoor),
-    );
-    const next: string[] = [];
-    for (const a of planned) {
-      if (a.indoor) {
-        next.push(a.id);
-        continue;
-      }
-      const replacement = indoor
-        .filter((a) => !used.has(a.id))
-        .sort((a, b) => a.price - b.price)[0];
-      if (replacement) {
-        used.add(replacement.id);
-        next.push(replacement.id);
-      }
-    }
-    if (!next.length) {
-      notice("没有可替换的室内活动，请回到发现页重新选择");
+    const alternative = createRainAlternative(planned, planOptions, activities);
+    if (!alternative) {
+      notice("当前预算或时长没有合适的室内方案，可在定制中调整条件");
       return;
     }
+    const summary = buildItinerary(alternative, planOptions);
     setConfirmation({
-      title: "更新为雨天备用计划？",
-      text: "将替换或移除户外活动，保留已有室内活动。替换后的费用和时间会重新计算。",
+      title: "换成这份雨天备用计划？",
+      text: `改为${alternative.map((a) => a.title).join("、")}。含餐饮交通参考 ¥${summary.totalPerPerson}/人，约 ${(summary.totalMinutes / 60).toFixed(1)} 小时。保留已有室内活动；没有合适替代的户外站点会减少，不强行增加消费。`,
       action: () => {
-        setPlan(next);
-        notice("已换成室内备用计划，请检查新的费用和时间");
+        setPlan(alternative.map((a) => a.id));
+        notice("已更新雨天计划，预算和时间都重新算好了");
       },
     });
   };
@@ -891,6 +879,7 @@ export default function Home() {
       return;
     }
     setEntries([entry, ...entries]);
+    if (demo) setDemoStep(4);
     close();
     setView("journal");
     notice("打卡成功，又收藏了一段周末时光");
@@ -1197,7 +1186,7 @@ export default function Home() {
               weather={weather}
               options={planOptions}
               onCustomize={openStudio}
-              onGuide={() => setModal("about")}
+              onTour={startDemo}
               onPreview={setProposalPreview}
             />
             <details className="explore-tools" id="preferences">
@@ -1774,6 +1763,24 @@ export default function Home() {
                             <MapPin size={13} />
                             {a?.city}
                           </span>
+                          <button
+                            className="journal-to-guide"
+                            onClick={() => {
+                              openForm("guide", a);
+                              if (a) setCity(a.city);
+                              setGuideDraft({
+                                title:
+                                  `${a?.city || city}周末｜${e.title}`.slice(
+                                    0,
+                                    60,
+                                  ),
+                                text: `这次的周末体验\n${e.text}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动参考：${price(a?.price || 0)}（示例）。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
+                              });
+                            }}
+                          >
+                            <BookOpen size={14} />
+                            整理成攻略
+                          </button>
                           <button
                             onClick={() => {
                               setConfirmation({
@@ -2358,7 +2365,9 @@ export default function Home() {
                   攻略标题
                   <input
                     name="title"
-                    defaultValue={editingGuide?.title || ""}
+                    defaultValue={
+                      editingGuide?.title || guideDraft?.title || ""
+                    }
                     maxLength={60}
                     required
                     placeholder="比如：上海 ¥50 慢游半日路线"
@@ -2379,7 +2388,7 @@ export default function Home() {
                   攻略内容
                   <textarea
                     name="text"
-                    defaultValue={editingGuide?.text || ""}
+                    defaultValue={editingGuide?.text || guideDraft?.text || ""}
                     maxLength={1200}
                     minLength={10}
                     required

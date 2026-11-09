@@ -27,7 +27,7 @@ type Props = {
   weather: Weather;
   options: PlanOptions;
   onCustomize: () => void;
-  onGuide: () => void;
+  onTour: () => void;
   onPreview: (proposal: WeekendProposal) => void;
 };
 export function DiscoveryEdition({
@@ -35,7 +35,7 @@ export function DiscoveryEdition({
   people,
   options,
   onCustomize,
-  onGuide,
+  onTour,
   onPreview,
 }: Props) {
   const base = defaultWeekendBrief(
@@ -99,7 +99,7 @@ export function DiscoveryEdition({
             <button className="edition-primary" onClick={onCustomize}>
               定制我的周末 <ArrowUpRight size={20} />
             </button>
-            <button className="edition-play" onClick={onGuide}>
+            <button className="edition-play" onClick={onTour}>
               <Play size={15} fill="currentColor" /> 90 秒体验
             </button>
           </div>
@@ -223,69 +223,71 @@ export function ProposalPreview({
     .filter(Boolean);
   return (
     <div className="proposal-preview">
-      <span className="edition-eyebrow">YOUR WEEKEND, ALMOST READY</span>
-      <h2>{proposal.title}</h2>
-      <p>{proposal.subtitle}</p>
-      <div className="proposal-facts">
-        <span>
-          <MapPin size={15} />
-          {items[0]?.city}
-        </span>
-        <span>
-          <CalendarDays size={15} />
-          {proposal.options.date}
-        </span>
-        <span>
-          <Users size={15} />
-          {proposal.options.people} 人
-        </span>
-        <span>
-          <CloudRain size={15} />
-          {proposal.options.weather}情景
-        </span>
+      <div className="proposal-content">
+        <span className="edition-eyebrow">YOUR WEEKEND, ALMOST READY</span>
+        <h2>{proposal.title}</h2>
+        <p>{proposal.subtitle}</p>
+        <div className="proposal-facts">
+          <span>
+            <MapPin size={15} />
+            {items[0]?.city}
+          </span>
+          <span>
+            <CalendarDays size={15} />
+            {proposal.options.date}
+          </span>
+          <span>
+            <Users size={15} />
+            {proposal.options.people} 人
+          </span>
+          <span>
+            <CloudRain size={15} />
+            {proposal.options.weather}情景
+          </span>
+        </div>
+        <div className="proposal-stops">
+          {items.map((a, i) => (
+            <div key={a.id}>
+              <img src={a.image} alt="" />
+              <span>
+                <small>
+                  0{i + 1} / {a.category}
+                </small>
+                <strong>{a.title}</strong>
+                <span>{a.location}</span>
+              </span>
+              <b>{a.price ? `¥${a.price}` : "免费"}</b>
+            </div>
+          ))}
+        </div>
+        <div className="proposal-budget">
+          <span>
+            把一整天的花费算进去
+            <small>
+              活动 + 餐饮 ¥{proposal.options.mealBudget} + 交通 ¥
+              {proposal.options.transportBudget}
+            </small>
+          </span>
+          <strong>
+            ¥{proposal.totalPerPerson}
+            <small>/人</small>
+          </strong>
+        </div>
+        <div className="proposal-reasons">
+          {proposal.reasons.map((reason) => (
+            <p key={reason}>
+              <Check size={15} />
+              {reason}
+            </p>
+          ))}
+        </div>
+        {proposal.tradeoffs.length > 0 && (
+          <p className="proposal-tradeoffs">{proposal.tradeoffs.join("；")}</p>
+        )}
+        <p className="proposal-note">
+          这是可修改的出游草案。活动和价格为示例，餐饮、交通与用时为估算；出发前请核实场次与开放信息。
+        </p>
       </div>
-      <div className="proposal-stops">
-        {items.map((a, i) => (
-          <div key={a.id}>
-            <img src={a.image} alt="" />
-            <span>
-              <small>
-                0{i + 1} / {a.category}
-              </small>
-              <strong>{a.title}</strong>
-              <span>{a.location}</span>
-            </span>
-            <b>{a.price ? `¥${a.price}` : "免费"}</b>
-          </div>
-        ))}
-      </div>
-      <div className="proposal-budget">
-        <span>
-          把一整天的花费算进去
-          <small>
-            活动 + 餐饮 ¥{proposal.options.mealBudget} + 交通 ¥
-            {proposal.options.transportBudget}
-          </small>
-        </span>
-        <strong>
-          ¥{proposal.totalPerPerson}
-          <small>/人</small>
-        </strong>
-      </div>
-      <div className="proposal-reasons">
-        {proposal.reasons.map((reason) => (
-          <p key={reason}>
-            <Check size={15} />
-            {reason}
-          </p>
-        ))}
-      </div>
-      {proposal.tradeoffs.length > 0 && (
-        <p className="proposal-tradeoffs">{proposal.tradeoffs.join("；")}</p>
-      )}
-      <p className="proposal-note">
-        这是可修改的出游草案。活动和价格为示例，餐饮、交通与用时为估算；出发前请核实场次与开放信息。
-      </p>
       <div className="proposal-actions">
         <button className="outline" onClick={onCustomize}>
           <Compass size={16} />
