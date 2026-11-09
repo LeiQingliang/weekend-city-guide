@@ -2,7 +2,7 @@
 
 **[打开公开作品 →](https://leiqingliang.github.io/weekend-city-guide/)**
 
-[![Deploy to GitHub Pages](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/deploy-pages.yml)
+[![Verify and publish](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml/badge.svg)](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml)
 
 面向大学生的周末探索交互雏形，也是一次 AI Coding 产品设计练习。先给出一份看得懂的周末提案，再把偏好、全天花费、可用时间和天气，落实到能调整、能分享的城市计划。
 

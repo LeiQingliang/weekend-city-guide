@@ -1,6 +1,6 @@
 # V3 验证记录
 
-验证日期：2026-11-10（北京时间）。检查对象为提交 `1380f7f` 的实际 Linux 生产构建产物：[成功构建记录](https://github.com/LeiQingliang/weekend-city-guide/actions/runs/42672719309)。后续发布提交只更新说明及页面截图，应用源码与此构建一致。
+验证日期：2026-11-10（北京时间）。检查对象为提交 `1380f7f` 的实际 Linux 生产构建产物：[成功构建记录](https://github.com/LeiQingliang/weekend-city-guide/actions/runs/42672719309)。后续发布提交更新说明、截图和发布流程，应用源码与此构建一致。
 
 ## 本轮自动化与浏览器检查
 
