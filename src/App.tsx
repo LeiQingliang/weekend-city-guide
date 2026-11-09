@@ -9,6 +9,7 @@ import {
   type PlanOptions,
 } from "./planner";
 import { sanitizeSnapshot, downloadJSON } from "./storage";
+import { isDateString } from "./weather";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
@@ -96,6 +97,7 @@ type Persisted = {
     category: Category;
     budget: number;
     weather: Weather;
+    weatherMode?: "live" | "scenario";
     people: number;
   };
   planOptions?: PlanOptions;
@@ -187,9 +189,7 @@ function cleanOptions(input: unknown): PlanOptions {
   return {
     ...defaultPlanOptions,
     date:
-      typeof x.date === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(x.date) &&
-      Number.isFinite(Date.parse(x.date))
+      typeof x.date === "string" && isDateString(x.date)
         ? x.date
         : defaultPlanOptions.date,
     startTime:
@@ -241,6 +241,7 @@ export default function Home() {
   });
   const [recognized, setRecognized] = useState<string[]>([]),
     [scenarioRequest, setScenarioRequest] = useState(0);
+  const [weatherMode, setWeatherMode] = useState<"live" | "scenario">("live");
   const [sharedPlan, setSharedPlan] = useState<{
     ids: string[];
     options: PlanOptions;
@@ -276,8 +277,13 @@ export default function Home() {
       setBudget(saved.preferences.budget);
       setWeather(saved.preferences.weather);
       setPeople(saved.preferences.people);
+      setWeatherMode(saved.preferences.weatherMode || "live");
     }
-    if (saved.planOptions) setPlanOptions(cleanOptions(saved.planOptions));
+    if (saved.planOptions) {
+      const options = cleanOptions(saved.planOptions);
+      setPlanOptions(options);
+      setPeople(options.people);
+    }
     setFavorites(Array.isArray(saved.favorites) ? saved.favorites : []);
     setPlan(Array.isArray(saved.plan) ? saved.plan : []);
     setEntries(Array.isArray(saved.entries) ? saved.entries : []);
@@ -326,6 +332,7 @@ export default function Home() {
           typeof t.id === "string" &&
           typeof t.title === "string" &&
           typeof t.date === "string" &&
+          Number.isFinite(Date.parse(t.date)) &&
           typeof t.meeting === "string" &&
           typeof t.note === "string" &&
           Number.isInteger(t.capacity) &&
@@ -382,7 +389,14 @@ export default function Home() {
             teams,
             entries,
             guides,
-            preferences: { city, category, budget, weather, people },
+            preferences: {
+              city,
+              category,
+              budget,
+              weather,
+              weatherMode,
+              people,
+            },
             planOptions,
           }),
         );
@@ -401,12 +415,13 @@ export default function Home() {
     category,
     budget,
     weather,
+    weatherMode,
     people,
     planOptions,
   ]);
   useEffect(() => {
-    if (ready) setPlanOptions((prev) => ({ ...prev, weather, people }));
-  }, [weather, people, ready]);
+    if (ready) setPlanOptions((prev) => ({ ...prev, people }));
+  }, [people, ready]);
   useEffect(() => {
     const incoming = () => {
       if (/(?:invite|guide|plan)=/.test(location.hash)) location.reload();
@@ -500,6 +515,10 @@ export default function Home() {
       .filter(Boolean) as Activity[],
     plannedTotal = planned.reduce((sum, a) => sum + a.price, 0);
   const switchView = (v: View) => {
+    if (v === "itinerary" && planned.length) {
+      setCity(planned[0].city);
+      setWeather(planOptions.weather as Weather);
+    }
     setView(v);
     setOnlySaved(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -518,6 +537,7 @@ export default function Home() {
       return;
     }
     setPlan([...plan, a.id]);
+    if (!plan.length) setPlanOptions((p) => ({ ...p, weather }));
     const estimate = buildItinerary([...planned, a], planOptions);
     notice(
       estimate.overBudget
@@ -536,8 +556,15 @@ export default function Home() {
     setModal(kind);
   };
   const planSummary = buildItinerary(planned, planOptions);
-  const setScenario = (next: Weather) => {
+  const applyWeather = (next: Weather, forCity: City = city) => {
     setWeather(next);
+    const planCity = activities.find((a) => a.id === plan[0])?.city;
+    if (!planCity || planCity === forCity)
+      setPlanOptions((p) => ({ ...p, weather: next }));
+  };
+  const setScenario = (next: Weather, forCity: City = city) => {
+    applyWeather(next, forCity);
+    setWeatherMode("scenario");
     setScenarioRequest((n) => n + 1);
   };
   const changePlanOptions = (next: PlanOptions) => {
@@ -556,7 +583,7 @@ export default function Home() {
       teams,
       entries,
       guides,
-      preferences: { city, category, budget, weather, people },
+      preferences: { city, category, budget, weather, weatherMode, people },
       planOptions,
     });
   const restoreRecords = async (file?: File) => {
@@ -585,7 +612,23 @@ export default function Home() {
           setTeams(restored.teams);
           setEntries(restored.entries);
           setGuides(restored.guides);
-          setPlanOptions(cleanOptions(restored.planOptions));
+          const options = cleanOptions(
+            restored.planOptions || {
+              ...defaultPlanOptions,
+              ...restored.preferences,
+            },
+          );
+          setPlanOptions(options);
+          setPeople(options.people);
+          setWeather(options.weather as Weather);
+          setWeatherMode(restored.preferences?.weatherMode || "scenario");
+          if (restored.preferences) {
+            setCity(restored.preferences.city);
+            setCategory(restored.preferences.category);
+            setBudget(restored.preferences.budget);
+          }
+          if (restored.plan.length)
+            setCity(activities.find((a) => a.id === restored.plan[0])!.city);
           notice("备份已恢复到当前设备");
         },
       });
@@ -600,10 +643,10 @@ export default function Home() {
     if (result.category) setCategory(result.category as Category);
     if (result.budget !== undefined) {
       setBudget(result.budget);
-      setPlanOptions((p) => ({ ...p, budget: result.budget! }));
     }
     if (result.people) setPeople(result.people as 1 | 2 | 4);
-    if (result.weather) setScenario(result.weather as Weather);
+    if (result.weather)
+      setScenario(result.weather as Weather, (result.city || city) as City);
     if (result.date) setPlanOptions((p) => ({ ...p, date: result.date! }));
     setQuery(result.query || "");
     setOnlySaved(false);
@@ -614,6 +657,13 @@ export default function Home() {
     );
   };
   const createQuickPlan = () => {
+    if (
+      planOptions.mealBudget + planOptions.transportBudget >
+      planOptions.budget
+    ) {
+      notice("餐饮与交通预留已超过全天预算，请先到周末计划调整费用");
+      return;
+    }
     const available = recommend(activities, {
       city,
       category,
@@ -644,6 +694,7 @@ export default function Home() {
     }
     const action = () => {
       setPlan(picked.map((a) => a.id));
+      setPlanOptions((p) => ({ ...p, weather, people }));
       setView("itinerary");
       window.scrollTo({ top: 0, behavior: "smooth" });
       notice("已安排一份半日计划，时间和费用都可以继续调整");
@@ -1053,7 +1104,9 @@ export default function Home() {
               date={planOptions.date}
               scenario={weather}
               scenarioRequest={scenarioRequest}
-              onWeatherChange={setWeather}
+              mode={weatherMode}
+              onModeChange={setWeatherMode}
+              onWeatherChange={(next) => applyWeather(next)}
               onDateChange={(date) => setPlanOptions((p) => ({ ...p, date }))}
             />
             <section className="filters" id="explore" aria-label="活动筛选">
@@ -1089,8 +1142,6 @@ export default function Home() {
                       onChange={(e) => {
                         const amount = Number(e.target.value);
                         setBudget(amount);
-                        if (amount < 999)
-                          setPlanOptions((p) => ({ ...p, budget: amount }));
                         setOnlySaved(false);
                       }}
                     >
@@ -2274,12 +2325,15 @@ export default function Home() {
                     setPlanOptions(incoming.options);
                     setPeople(incoming.options.people);
                     setWeather(incoming.options.weather as Weather);
+                    setWeatherMode("scenario");
                     setScenarioRequest((n) => n + 1);
                     setCity(
                       activities.find((a) => a.id === incoming.ids[0])!.city,
                     );
                     close();
-                    switchView("itinerary");
+                    setView("itinerary");
+                    setOnlySaved(false);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
                     notice("行程已载入，可以按自己的节奏调整");
                   }}
                 >

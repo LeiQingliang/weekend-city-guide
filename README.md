@@ -1,48 +1,57 @@
 # 出门啦 · 周末城市探索指南
 
-面向大学生的城市周末探索交互雏形：根据兴趣、天气、预算与同行人数，找到值得出门的小活动，并串起组队、打卡和攻略分享。
+**[打开公开作品 →](https://leiqingliang.github.io/weekend-city-guide/)**
 
-**在线体验：<https://leiqingliang.github.io/weekend-city-guide/>**
-代码仓库：<https://github.com/LeiQingliang/weekend-city-guide>
+[![Deploy to GitHub Pages](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/deploy-pages.yml)
 
-## 可以体验
+面向大学生的周末探索交互雏形。把“去哪玩”的想法，变成有推荐理由、时间安排、预算和同行邀请的一份城市计划。
 
-- **发现周末**：切换上海、杭州、北京；按活动分类、人均预算、示例天气、同行人数及关键词筛选，查看推荐理由。
-- **规划行程**：查看建议路线、交通与出发提醒，将活动加入周末清单，计算参考费用并分享清单。
-- **找个搭子**：创建小队、模拟加入或退出，生成可打开的邀请链接。
-- **我的足迹**：收藏活动，记录文字与照片打卡，浏览探索记录。
-- **灵感攻略**：阅读示例攻略，撰写自己的路线与心得，通过链接分享。
-- **多端浏览**：适配桌面与手机，支持键盘操作与弹窗关闭。
+[三分钟体验路线](docs/SHOWCASE.md) · [产品设计说明](docs/PRODUCT.md) · [代码仓库](https://github.com/LeiQingliang/weekend-city-guide)
 
-## 雏形范围
+## V2 可以体验
 
-活动、费用、场次及天气均为设计示例，并非实时信息；推荐基于本地规则，未调用大模型或天气接口。页面用于展示产品结构和交互，不提供实际预约、购票或支付服务。
+| 环节 | 已实现能力 |
+| --- | --- |
+| 找灵感 | 一句话解析常用的城市、兴趣、人数、预算与天气表达；三城筛选、收藏、搜索及推荐理由 |
+| 看天气 | Open-Meteo 每日预报、日期选择、30 分钟缓存；限流、断网和预报范围外均有明确提示，可切换天气情景 |
+| 排计划 | 半日建议、日期与开始时间、活动顺序调整；活动＋餐饮＋交通的人均及同行总费用、超预算提醒 |
+| 应对变化 | 雨天提醒；确认后替换或移除户外活动，重新计算时间和费用 |
+| 带走计划 | 分享行程快照、预览后载入；导出 `.ics` 日历与文字行程 |
+| 同行与记录 | 本机小队创建、加入、退出和邀请；照片打卡；攻略创建、编辑、删除与分享 |
+| 保存数据 | 本机记录持久化、JSON 备份与确认恢复，导入内容校验与清理 |
 
-收藏、行程、小队、打卡与自写攻略保存在当前浏览器的 `localStorage`，没有账号、后台数据库或跨设备同步。组队人数仅在当前设备模拟变化。分享链接直接包含邀请或攻略内容，接收者可打开阅读；它不是实时协作房间。清除浏览器数据后，本机记录会丢失。
+## 数据与能力边界
 
-## 本地运行
+- **活动是示例。** 活动、票价和场次用于展示设计，不提供真实预约、售票或支付。图片只表达场景氛围。
+- **天气有来源。** 联网模式请求 [Open-Meteo](https://open-meteo.com/en/docs) 的城市参考位置预报，不读取设备定位。只有成功取得数据才展示联网预报；情景模式明确标记。免费接口可能限流，不能保证持续可用。
+- **推荐和排程使用本地规则。** 未调用大模型。转场统一预留 25 分钟；演出不早于 19:00 的规则仅作规划示例，不代表真实开演时间。餐饮有费用预留，尚未自动安排用餐时间；未接入实时地图或营业时段。
+- **记录保存在当前浏览器。** 无账号、业务后台或跨设备报名同步；小队人数为本机模拟。清除浏览器数据会删除记录，可先导出备份。
+- **分享的是内容快照。** 行程、邀请和攻略写入链接的 `#` 片段，由接收者浏览器读取。链接可被转发，内容不加密；修改或删除本机内容不会撤回已经分享的快照。
 
-使用 Node.js **22.13 或更新版本**。
+## 本地运行与检查
+
+Node.js **22.13+**，React + TypeScript + Vite。
 
 ```bash
 npm ci
 npm run dev
 ```
 
-构建并预览：
-
 ```bash
+npm run typecheck
+npm test
 npm run build
 npm run preview
 ```
 
-## 发布与持续迭代
+测试覆盖需求解析、排程与预算、分享数据、日历、天气校验与回退、本机记录清理等关键逻辑。具体运行结果见上方 Actions；单元测试不替代浏览器交互和公开访问检查。
 
-GitHub Actions 在代码推送到 `main` 后构建并部署 GitHub Pages。发布结果可在仓库的 **Actions** 中查看；成功后更新同一在线地址。
+## 固定地址与发布
 
-为保持提交链接不变，请保留 GitHub 用户名 `LeiQingliang`、仓库名 `weekend-city-guide` 与部署基础路径 `/weekend-city-guide/`。后续调整内容和功能时继续更新此仓库，不另建部署域名。
+推送到 `main` 后，由 GitHub Actions 构建、测试并发布 GitHub Pages。后续迭代继续使用同一地址：
 
-## 设计说明与图片
+**https://leiqingliang.github.io/weekend-city-guide/**
 
-- [产品设计说明](docs/PRODUCT.md)：需求拆解、关键流程与后续迭代方向。
-- [图片来源](public/images/credits.txt)：Unsplash 场景配图，仅表达活动氛围，不对应实际活动现场。
+请保留 GitHub 用户名 `LeiQingliang`、仓库名 `weekend-city-guide` 及 Vite `base: "/weekend-city-guide/"`，不要通过另建站点或改名替换提交链接。维护约定见 [AGENTS.md](AGENTS.md)。
+
+图片来源见 [credits.txt](public/images/credits.txt)。天气数据由 Open-Meteo 提供，页面保留 [CC BY 4.0](https://open-meteo.com/en/licence) 署名链接；接口使用条件见 [官方说明](https://open-meteo.com/en/terms)。

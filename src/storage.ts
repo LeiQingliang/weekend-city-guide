@@ -43,6 +43,7 @@ export type Preferences = {
   budget: number;
   people: number;
   weather: Weather;
+  weatherMode?: "live" | "scenario";
 };
 export type Snapshot = {
   version: 2;
@@ -154,6 +155,9 @@ export function sanitizeSnapshot(value: unknown): Snapshot {
         weather: (["晴天", "多云", "下雨"].includes(String(p.weather))
           ? p.weather
           : "多云") as Weather,
+        weatherMode: (p.weatherMode === "scenario" ? "scenario" : "live") as
+          | "live"
+          | "scenario",
       }
     : undefined;
   return {
