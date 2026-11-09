@@ -6,7 +6,7 @@
 
 面向大学生的周末探索交互雏形。把“去哪玩”的想法，变成有推荐理由、时间安排、预算和同行邀请的一份城市计划。
 
-[三分钟体验路线](docs/SHOWCASE.md) · [产品设计说明](docs/PRODUCT.md) · [代码仓库](https://github.com/LeiQingliang/weekend-city-guide)
+[三分钟体验路线](docs/SHOWCASE.md) · [产品设计说明](docs/PRODUCT.md) · [验证记录](docs/VERIFICATION.md) · [代码仓库](https://github.com/LeiQingliang/weekend-city-guide)
 
 ## V2 可以体验
 
