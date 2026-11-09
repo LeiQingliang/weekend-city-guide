@@ -1099,16 +1099,18 @@ export default function Home() {
               recognized={recognized}
               onQuickPlan={createQuickPlan}
             />
-            <WeatherPanel
-              city={city}
-              date={planOptions.date}
-              scenario={weather}
-              scenarioRequest={scenarioRequest}
-              mode={weatherMode}
-              onModeChange={setWeatherMode}
-              onWeatherChange={(next) => applyWeather(next)}
-              onDateChange={(date) => setPlanOptions((p) => ({ ...p, date }))}
-            />
+            {ready && (
+              <WeatherPanel
+                city={city}
+                date={planOptions.date}
+                scenario={weather}
+                scenarioRequest={scenarioRequest}
+                mode={weatherMode}
+                onModeChange={setWeatherMode}
+                onWeatherChange={(next) => applyWeather(next)}
+                onDateChange={(date) => setPlanOptions((p) => ({ ...p, date }))}
+              />
+            )}
             <section className="filters" id="explore" aria-label="活动筛选">
               <div className="filter-top">
                 <div className="filter-label">
