@@ -14,3 +14,8 @@ market.jpg — Unsplash
 
 music.jpg — Unsplash
 下载源：https://images.unsplash.com/photo-1470225620780-dba8ba36b745
+
+city-weekend-v3.jpg — AI 生成（OpenAI Image Generation）
+城市周末概念氛围图，不对应真实场地或活动现场，不应作为纪实照片引用。
+提示词概要：当代中国城市滨水步道，金色傍晚、现代天际线、悬铃木树冠，三位背向镜头的年轻人轻松同行；深森林绿与暖奶油色、旅行杂志摄影感，无文字、标志或界面元素。
+网页文件仅作 JPEG 编码优化（质量 86），保留 1536×1024 尺寸与原始构图。

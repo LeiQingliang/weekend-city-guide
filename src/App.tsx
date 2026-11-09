@@ -1,7 +1,14 @@
 import { asset, siteUrl } from "./paths";
 import Itinerary from "./components/Itinerary";
 import WeatherPanel from "./components/WeatherPanel";
-import { BriefComposer, ProgressRail, Showcase } from "./components/Experience";
+import { BriefComposer } from "./components/Experience";
+import {
+  DiscoveryEdition,
+  ProposalPreview,
+} from "./components/DiscoveryEdition";
+import WeekendStudio from "./components/WeekendStudio";
+import ProductGuide, { DemoJourneyBar } from "./components/ReviewerGuide";
+import type { WeekendProposal } from "./curation";
 import {
   buildItinerary,
   defaultPlanOptions,
@@ -222,7 +229,7 @@ export default function Home() {
     [ready, setReady] = useState(false);
   const [detail, setDetail] = useState<Activity | null>(null),
     [modal, setModal] = useState<
-      "team" | "checkin" | "guide" | "plan" | "about" | null
+      "team" | "checkin" | "guide" | "plan" | "about" | "studio" | null
     >(null),
     [guideDetail, setGuideDetail] = useState<Guide | null>(null),
     [teamDetail, setTeamDetail] = useState<Team | null>(null),
@@ -253,6 +260,13 @@ export default function Home() {
   } | null>(null);
   const [storageError, setStorageError] = useState(false);
   const [editingGuide, setEditingGuide] = useState<Guide | null>(null);
+  const [proposalPreview, setProposalPreview] =
+    useState<WeekendProposal | null>(null);
+  const [demo, setDemo] = useState(false);
+  const [demoStep, setDemoStep] = useState(0);
+  const demoSnapshot = useRef<
+    (Persisted & { view: View; query: string; onlySaved: boolean }) | null
+  >(null);
   const backupInput = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     dialogRef = useRef<HTMLDivElement>(null);
@@ -378,7 +392,7 @@ export default function Home() {
     setReady(true);
   }, []);
   useEffect(() => {
-    if (ready)
+    if (ready && !demo)
       try {
         localStorage.setItem(
           STORE,
@@ -411,6 +425,7 @@ export default function Home() {
     entries,
     guides,
     ready,
+    demo,
     city,
     category,
     budget,
@@ -436,6 +451,7 @@ export default function Home() {
     teamDetail ||
     shareCard ||
     sharedPlan ||
+    proposalPreview ||
     confirmation
   );
   const close = () => {
@@ -449,6 +465,7 @@ export default function Home() {
     setSharedPlan(null);
     setConfirmation(null);
     setEditingGuide(null);
+    setProposalPreview(null);
     if (/(?:invite|guide|plan)=/.test(location.hash))
       history.replaceState(null, "", siteUrl());
   };
@@ -905,6 +922,101 @@ export default function Home() {
     setView("guides");
     notice("攻略已保存，可生成链接分享给朋友");
   };
+  const openStudio = () => {
+    close();
+    setModal("studio");
+  };
+  const adoptProposal = (proposal: WeekendProposal) => {
+    const action = () => {
+      setPlan(proposal.activityIds);
+      setPlanOptions(cleanOptions(proposal.options));
+      setCity(activities.find((a) => a.id === proposal.activityIds[0])!.city);
+      setPeople(proposal.options.people);
+      setWeather(proposal.options.weather as Weather);
+      setWeatherMode("scenario");
+      setScenarioRequest((n) => n + 1);
+      setOnlySaved(false);
+      setView("itinerary");
+      if (demo) setDemoStep(1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      notice("周末提案已成为你的计划，时间、预算和顺序都可以调整");
+    };
+    close();
+    if (plan.length && !demo)
+      setConfirmation({
+        title: "采用这份新的周末提案？",
+        text: "将替换当前行程。你的收藏、打卡和攻略会保留。",
+        action,
+      });
+    else action();
+  };
+  const startDemo = () => {
+    if (!ready) return;
+    if (demo) {
+      openStudio();
+      return;
+    }
+    demoSnapshot.current = {
+      favorites,
+      plan,
+      teams,
+      entries,
+      guides,
+      preferences: { city, category, budget, weather, weatherMode, people },
+      planOptions,
+      view,
+      query,
+      onlySaved,
+    };
+    close();
+    setDemo(true);
+    setDemoStep(0);
+    setCity("上海");
+    setCategory("全部");
+    setBudget(100);
+    setPeople(2);
+    setWeather("晴天");
+    setWeatherMode("scenario");
+    setScenarioRequest((n) => n + 1);
+    setPlan(["sh-gallery", "sh-nature"]);
+    setPlanOptions({
+      ...defaultPlanOptions,
+      budget: 100,
+      people: 2,
+      weather: "晴天",
+    });
+    setQuery("");
+    setOnlySaved(false);
+    setView("itinerary");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const exitDemo = () => {
+    const saved = demoSnapshot.current;
+    close();
+    if (saved) {
+      setFavorites(saved.favorites);
+      setPlan(saved.plan);
+      setTeams(saved.teams);
+      setEntries(saved.entries);
+      setGuides(saved.guides);
+      const p = saved.preferences!;
+      setCity(p.city);
+      setCategory(p.category);
+      setBudget(p.budget);
+      setWeather(p.weather);
+      setPeople(p.people);
+      setWeatherMode(p.weatherMode || "live");
+      setPlanOptions(saved.planOptions!);
+      setView(saved.view);
+      setQuery(saved.query);
+      setOnlySaved(saved.onlySaved);
+    }
+    setDemo(false);
+    setDemoStep(0);
+    demoSnapshot.current = null;
+    notice("已退出体验，原有记录完整保留");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const uploadPhoto = (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -972,6 +1084,13 @@ export default function Home() {
             ))}
           </nav>
           <div className="header-actions">
+            <button
+              className="reviewer-entry"
+              onClick={() => setModal("about")}
+            >
+              <Compass size={15} />
+              作品导览
+            </button>
             <label className="city-select">
               <MapPin size={16} />
               <select
@@ -995,6 +1114,41 @@ export default function Home() {
         </div>
       </header>
       <main className="main" id="main-content" tabIndex={-1}>
+        {demo && (
+          <DemoJourneyBar
+            step={demoStep}
+            onDecision={() => {
+              setDemoStep(0);
+              openStudio();
+            }}
+            onRain={() => {
+              if (!planned.length) {
+                openStudio();
+                return;
+              }
+              close();
+              const planCity = planned[0].city;
+              setCity(planCity);
+              setScenario("下雨", planCity);
+              setView("itinerary");
+              setDemoStep(1);
+            }}
+            onShare={() => {
+              if (!planned.length) {
+                openStudio();
+                return;
+              }
+              close();
+              setDemoStep(2);
+              sharePlan();
+            }}
+            onCheckin={() => {
+              setDemoStep(3);
+              openForm("checkin", planned[0]);
+            }}
+            onExit={exitDemo}
+          />
+        )}
         {storageError && (
           <div className="storage-alert" role="alert">
             本机储存空间不足，最新修改还未保存。
@@ -1010,6 +1164,7 @@ export default function Home() {
             onRemove={(id) => setPlan(plan.filter((x) => x !== id))}
             onMove={movePlan}
             onExplore={() => switchView("discover")}
+            onCustomize={openStudio}
             onShare={sharePlan}
             onTeam={(a) => openForm("team", a)}
             onCheckin={(a) => openForm("checkin", a)}
@@ -1036,81 +1191,47 @@ export default function Home() {
         />
         {view === "discover" && (
           <>
-            <section className="hero">
-              <img
-                className="hero-image"
-                src={asset("hero.jpg")}
-                alt="阳光下的绿色城市公园"
-              />
-              <div className="hero-shade" />
-              <div className="hero-content">
-                <span className="eyebrow">
-                  <span className="live-dot" />
-                  THE WEEKEND IS YOURS
-                </span>
-                <h1>
-                  把周末，
-                  <br />
-                  交给一点<span>好奇心。</span>
-                </h1>
-                <p>不用远行，也有新鲜事。找到你的城市小冒险。</p>
-                <button
-                  className="hero-cta"
-                  onClick={() =>
-                    document
-                      .getElementById("explore")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
-                >
-                  发现我的周末 <ArrowUpRight size={19} />
-                </button>
-                <div className="hero-caption">
-                  <span className="mini-avatars">
-                    <i>逛</i>
-                    <i>玩</i>
-                    <i>走</i>
-                  </span>
-                  <span>一个人自在，一群人也精彩</span>
-                </div>
-              </div>
-              <div className="hero-stamp">
-                <Sun size={26} />
-                <div>
-                  让生活
-                  <br />
-                  <strong>有点「出逃感」</strong>
-                </div>
+            <DiscoveryEdition
+              city={city}
+              people={people}
+              weather={weather}
+              options={planOptions}
+              onCustomize={openStudio}
+              onGuide={() => setModal("about")}
+              onPreview={setProposalPreview}
+            />
+            <details className="explore-tools" id="preferences">
+              <summary>
                 <span>
-                  GO OUT
-                  <br />
-                  FEEL GOOD
+                  <SlidersHorizontal size={17} />
+                  有自己的想法？按偏好筛选
                 </span>
+                <span>
+                  一句话、天气与出发时间 <Plus size={15} />
+                </span>
+              </summary>
+              <div className="explore-tools-body">
+                <BriefComposer
+                  onApply={applyBrief}
+                  recognized={recognized}
+                  onQuickPlan={createQuickPlan}
+                />
+                {ready && (
+                  <WeatherPanel
+                    city={city}
+                    date={planOptions.date}
+                    scenario={weather}
+                    scenarioRequest={scenarioRequest}
+                    mode={weatherMode}
+                    onModeChange={setWeatherMode}
+                    onWeatherChange={(next) => applyWeather(next)}
+                    onDateChange={(date) =>
+                      setPlanOptions((p) => ({ ...p, date }))
+                    }
+                  />
+                )}
               </div>
-              <span className="image-note">周末灵感 · 氛围配图</span>
-            </section>
-            <ProgressRail
-              planCount={plan.length}
-              entryCount={entries.length}
-              onPlan={() => switchView("itinerary")}
-              onRecord={() => switchView("journal")}
-            />
-            <BriefComposer
-              onApply={applyBrief}
-              recognized={recognized}
-              onQuickPlan={createQuickPlan}
-            />
-            {ready && (
-              <WeatherPanel
-                city={city}
-                date={planOptions.date}
-                scenario={weather}
-                scenarioRequest={scenarioRequest}
-                mode={weatherMode}
-                onModeChange={setWeatherMode}
-                onWeatherChange={(next) => applyWeather(next)}
-                onDateChange={(date) => setPlanOptions((p) => ({ ...p, date }))}
-              />
-            )}
+            </details>
             <section className="filters" id="explore" aria-label="活动筛选">
               <div className="filter-top">
                 <div className="filter-label">
@@ -2365,16 +2486,26 @@ export default function Home() {
                 </div>
               </div>
             )}
+            {modal === "studio" && (
+              <WeekendStudio
+                city={city}
+                people={people}
+                weather={weather}
+                initialOptions={planOptions}
+                onAdopt={adoptProposal}
+                onClose={close}
+              />
+            )}
+            {proposalPreview && (
+              <ProposalPreview
+                proposal={proposalPreview}
+                onAdopt={() => adoptProposal(proposalPreview)}
+                onCustomize={openStudio}
+              />
+            )}
             {modal === "about" && (
               <div className="dialog-content">
-                <Showcase
-                  onExport={exportRecords}
-                  onTry={() => {
-                    close();
-                    setView("discover");
-                    createQuickPlan();
-                  }}
-                />
+                <ProductGuide onExport={exportRecords} onStart={startDemo} />
               </div>
             )}
           </div>

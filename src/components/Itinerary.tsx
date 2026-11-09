@@ -37,6 +37,7 @@ export interface ItineraryProps {
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
   onExplore: () => void;
+  onCustomize?: () => void;
   onShare: () => void;
   onTeam: (activity: Activity) => void;
   onCheckin: (activity: Activity) => void;
@@ -75,6 +76,7 @@ export default function Itinerary({
   onRemove,
   onMove,
   onExplore,
+  onCustomize,
   onShare,
   onTeam,
   onCheckin,
@@ -141,6 +143,66 @@ export default function Itinerary({
     setExportStatus("文字行程已生成，可以离线查看或发送给同行朋友。");
   };
 
+  if (!items.length) {
+    return (
+      <section
+        className="itinerary-page itinerary-start-page"
+        aria-labelledby="itinerary-title"
+      >
+        <div className="itinerary-start-heading">
+          <span className="kicker">YOUR NEXT LITTLE ADVENTURE</span>
+          <h1 id="itinerary-title">好周末，从一个想法开始。</h1>
+          <p>还没想好去哪？先选一种心情，我们一起把周末安排好。</p>
+        </div>
+        <div className="itinerary-start-card">
+          <div className="itinerary-start-promise">
+            <span className="itinerary-start-icon" aria-hidden="true">
+              <Compass size={28} />
+            </span>
+            <div>
+              <h2>从“去哪玩”，到可以出发。</h2>
+              <p>一份适合你的路线，时间、花费和同行安排都有着落。</p>
+            </div>
+          </div>
+          <ol className="itinerary-start-steps">
+            <li>
+              <span aria-hidden="true">01</span>
+              <div>
+                <strong>说说你的期待</strong>
+                <p>城市、心情和预算，你来定。</p>
+              </div>
+            </li>
+            <li>
+              <span aria-hidden="true">02</span>
+              <div>
+                <strong>挑一条合适路线</strong>
+                <p>看看时间与费用，雨天也有备选。</p>
+              </div>
+            </li>
+            <li>
+              <span aria-hidden="true">03</span>
+              <div>
+                <strong>带上快乐出发</strong>
+                <p>约个搭子，回来留一张打卡。</p>
+              </div>
+            </li>
+          </ol>
+          <div className="itinerary-start-actions">
+            <button className="primary" onClick={onCustomize || onExplore}>
+              定制我的周末 <ArrowRight size={17} />
+            </button>
+            <button className="outline" onClick={onExplore}>
+              自己挑活动
+            </button>
+          </div>
+          <p className="itinerary-start-note">
+            先选喜欢的，再慢慢调整。不用一次决定所有事。
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="itinerary-page" aria-labelledby="itinerary-title">
       <div className="itinerary-heading">
@@ -168,6 +230,24 @@ export default function Itinerary({
           </button>
         </div>
       </div>
+
+      <section className="itinerary-next-steps" aria-label="计划后的下一步">
+        <div>
+          <span className="itinerary-next-label">下一步，一起出发</span>
+          <p>从第一站约起，把这份计划变成周末回忆。</p>
+        </div>
+        <div className="itinerary-next-actions">
+          <button onClick={() => onTeam(items[0])}>
+            <Users size={17} /> 约搭子
+          </button>
+          <button onClick={onShare}>
+            <Send size={17} /> 分享计划
+          </button>
+          <button onClick={() => onCheckin(items[0])}>
+            <Camera size={17} /> 记录打卡
+          </button>
+        </div>
+      </section>
 
       <div className="itinerary-settings" aria-label="行程设置">
         <label>

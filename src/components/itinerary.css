@@ -2248,3 +2248,221 @@
     padding-left: 24px;
   }
 }
+
+.itinerary-start-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 22px 0 16px;
+}
+.itinerary-start-heading {
+  margin-bottom: 26px;
+}
+.itinerary-start-heading .kicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1.7px;
+  color: #5f705a;
+  margin-bottom: 12px;
+}
+.itinerary-start-heading h1 {
+  font-size: clamp(25px, 3vw, 36px);
+  line-height: 1.45;
+  letter-spacing: -0.8px;
+  color: #263f32;
+}
+.itinerary-start-heading p {
+  margin-top: 10px;
+  color: #5c6d55;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.itinerary-start-card {
+  padding: 32px;
+  background: #fffef9;
+  border: 1px solid #dce5d4;
+  border-radius: 18px;
+}
+.itinerary-start-promise {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.itinerary-start-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #24654b;
+  background: #eef3e5;
+  border-radius: 16px;
+}
+.itinerary-start-promise h2 {
+  color: #30483b;
+  font-size: 21px;
+  line-height: 1.5;
+}
+.itinerary-start-promise p {
+  margin-top: 5px;
+  color: #5c6d55;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.itinerary-start-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  list-style: none;
+  padding: 26px 0;
+  margin: 24px 0;
+  border-top: 1px solid #e4eadc;
+  border-bottom: 1px solid #e4eadc;
+}
+.itinerary-start-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+.itinerary-start-steps li > span {
+  color: #24654b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 22px;
+}
+.itinerary-start-steps strong {
+  color: #30483b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.itinerary-start-steps p {
+  margin-top: 4px;
+  color: #5c6d55;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.itinerary-start-actions {
+  display: flex;
+  gap: 12px;
+}
+.itinerary-start-actions button {
+  min-height: 46px;
+  padding: 12px 20px;
+  font-size: 14px;
+}
+.itinerary-start-note {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #5c6d55;
+  line-height: 1.8;
+}
+.itinerary-next-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 20px;
+  margin-bottom: 22px;
+  border: 1px solid #dce5d4;
+  border-radius: 10px;
+  background: #f0f4e8;
+}
+.itinerary-next-label {
+  color: #30483b;
+  font-size: 14px;
+  font-weight: 650;
+}
+.itinerary-next-steps p {
+  color: #5c6d55;
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 4px;
+}
+.itinerary-next-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  flex-shrink: 0;
+}
+.itinerary-next-actions button {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #d6e1cf;
+  border-radius: 7px;
+  background: #fffef9;
+  color: #24654b;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.itinerary-next-actions button:hover {
+  background: #e5edda;
+  border-color: #b7cba8;
+}
+@media (max-width: 680px) {
+  .itinerary-start-page {
+    padding-top: 8px;
+  }
+  .itinerary-start-heading {
+    margin-bottom: 20px;
+  }
+  .itinerary-start-heading p {
+    font-size: 13px;
+  }
+  .itinerary-start-card {
+    padding: 22px 18px;
+    border-radius: 13px;
+  }
+  .itinerary-start-promise {
+    align-items: flex-start;
+    gap: 11px;
+  }
+  .itinerary-start-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+  .itinerary-start-icon svg {
+    width: 23px;
+    height: 23px;
+  }
+  .itinerary-start-promise h2 {
+    font-size: 17px;
+  }
+  .itinerary-start-promise p {
+    font-size: 12px;
+  }
+  .itinerary-start-steps {
+    grid-template-columns: 1fr;
+    gap: 13px;
+    padding: 18px 0;
+    margin: 18px 0;
+  }
+  .itinerary-start-steps li {
+    gap: 12px;
+  }
+  .itinerary-start-steps p {
+    margin-top: 0;
+  }
+  .itinerary-start-actions {
+    flex-direction: column;
+    gap: 9px;
+  }
+  .itinerary-start-actions button {
+    width: 100%;
+  }
+  .itinerary-start-note {
+    margin-top: 12px;
+  }
+  .itinerary-next-steps {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px;
+  }
+  .itinerary-next-actions button {
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 5px;
+    min-height: 60px;
+  }
+}
