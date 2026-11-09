@@ -9,7 +9,7 @@ export function createRainAlternative(
   if (!items.length) return null;
   const city = items[0].city;
   const next = items.filter((item) => item.city === city && item.indoor);
-  const limit = Math.max(180, buildItinerary(items, options).totalMinutes);
+  const limit = buildItinerary(items, options).totalMinutes;
   if (next.length && buildItinerary(next, options).overBudget) return null;
   for (const item of items.filter((item) => !item.indoor)) {
     const replacement = catalog

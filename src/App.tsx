@@ -1084,7 +1084,14 @@ export default function Home() {
               <MapPin size={16} />
               <select
                 value={city}
-                onChange={(e) => setCity(e.target.value as City)}
+                onChange={(e) => {
+                  setCity(e.target.value as City);
+                  if (view === "itinerary") {
+                    setView("discover");
+                    setOnlySaved(false);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
+                }}
                 aria-label="选择城市"
               >
                 <option>上海</option>

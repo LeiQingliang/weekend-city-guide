@@ -61,13 +61,13 @@ test("rain alternative preserves indoor choices without adding an over-budget re
   );
   assert.equal(buildItinerary(next!, options).totalPerPerson, 75);
 });
-test("rain alternative avoids a costly evening wait and never silently relaxes the budget", () => {
+test("rain alternative avoids evening waits without relaxing budget or original duration", () => {
   const walk = activity({
       id: "walk",
       category: "户外",
       indoor: false,
       price: 0,
-      duration: "2 小时",
+      duration: "3 小时",
     }),
     gallery = activity(),
     show = activity({ id: "show", category: "演出", price: 98 });
@@ -80,6 +80,14 @@ test("rain alternative avoids a costly evening wait and never silently relaxes t
   );
   assert.equal(
     createRainAlternative([walk], { ...options, budget: 50 }, [gallery, show]),
+    null,
+  );
+  assert.equal(
+    createRainAlternative(
+      [{ ...walk, duration: "2 小时" }],
+      { ...options, budget: 200 },
+      [gallery, show],
+    ),
     null,
   );
 });
