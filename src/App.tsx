@@ -1781,7 +1781,7 @@ export default function Home() {
                                     0,
                                     60,
                                   ),
-                                text: `这次的周末体验\n${e.text}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动参考：${price(a?.price || 0)}（示例）。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
+                                text: `这次的周末体验${e.text.length > 900 ? "（打卡节选）" : ""}\n${e.text.slice(0,900)}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动参考：${price(a?.price || 0)}（示例）。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
                               });
                             }}
                           >
