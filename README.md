@@ -26,9 +26,9 @@
 
 ## 界面预览
 
-| 桌面：排程与完整费用 | 手机：发现与灵感 |
+| 桌面：具体提案与完整费用 | 手机：首屏即可开始 |
 | --- | --- |
-| ![桌面行程页面](docs/images/plan.jpg) | ![手机发现页面](docs/images/mobile.jpg) |
+| ![桌面提案首页](docs/images/plan.jpg) | ![手机提案首页](docs/images/mobile.jpg) |
 
 以上为实际运行页面截图。
 
