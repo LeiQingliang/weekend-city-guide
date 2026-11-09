@@ -2,7 +2,7 @@
 
 **[打开公开作品 →](https://leiqingliang.github.io/weekend-city-guide/)**
 
-[![Verify and publish](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml/badge.svg)](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml)
+[![Verify preview](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml/badge.svg)](https://github.com/LeiQingliang/weekend-city-guide/actions/workflows/verify-preview.yml)
 
 面向大学生的周末探索交互雏形，也是一次 AI Coding 产品设计练习。先给出一份看得懂的周末提案，再把偏好、全天花费、可用时间和天气，落实到能调整、能分享的城市计划。
 
@@ -61,7 +61,7 @@ npm run preview
 
 ## 固定地址与发布
 
-推送到 `main` 后，由 GitHub Actions 构建、测试并发布 GitHub Pages。后续迭代继续使用同一地址：
+源代码保留在 `main`，GitHub Actions 对提交执行构建与测试。已验证的生产文件发布到 `gh-pages` 分支根目录，由 GitHub Pages 部署；更新 `main` 后还需将对应构建产物发布到该分支，详见 [发布步骤](docs/DEPLOYMENT.md)。后续迭代继续使用同一地址：
 
 **https://leiqingliang.github.io/weekend-city-guide/**
 
