@@ -21,6 +21,16 @@
 
 转场仍统一预留 25 分钟，用餐仅计费用，往返交通尚未排程；本轮未将这些估算称为已校准。22:00 是定制的一天出游边界，不是来源证实的统一关门时间。未知条件确认不等于实际满足，日历导出不等于预约或购票。
 
+## V6 正式构建与公开发布
+
+应用提交 `1eea1db6b5914dfe860b6c4722b5b75a7a6c1309` 通过 [Linux 正式构建](https://github.com/LeiQingliang/weekend-city-guide/actions/runs/42762023454)及 [main 分支验证](https://github.com/LeiQingliang/weekend-city-guide/actions/runs/42762101248)。111 项前端逻辑测试、12 项无凭据后端测试、类型检查与 Vite 构建成功。下载产物的 ZIP SHA256 与 GitHub artifact digest 一致：`daaa1635c4cf98b76b40552acbafff8f21c2d5010d5d499f39fc793f957e4331`。
+
+正式 Vite 产物的浏览器回归覆盖规划工作台6组、出发路径5组、费用分享4项、跨浏览器回执10项，均通过，未捕获页面脚本错误。手机相关流程无横向溢出。天气在部分回归中固定模拟为不可用，以验证失败时仍可规划；这些结果不代表实时预报接口始终可达。320像素下仍需正常滚动查看完整方案，不把所有内容挤进首屏。
+
+上述产物已通过 [Pages 发布](https://github.com/LeiQingliang/weekend-city-guide/actions/runs/42762284523)，对应 `gh-pages` 提交 `16400595d3f826732abfd1dd06103636d17a80b8`。主资源为 `index-D3r5EK5e.js` 与 `index-Bd7Vz8gv.css`。2026-11-10 13:28 后使用未登录浏览器访问[固定公开地址](https://leiqingliang.github.io/weekend-city-guide/)，返回 HTTP 200 并加载这组资源；需求整理、未知要求确认后采用、匿名分享载入与刷新、手机速览/编辑切换、商业测算检查通过，未出现站内资源错误或页面脚本错误。
+
+GitHub Pages 状态为 built，仓库和站点公开，强制 HTTPS，仍从 `gh-pages` 根目录发布。没有改变域名、仓库名或子路径。此次公开浏览器测试未发送模型请求，与页面的本地模式标注一致；后端源码和真实本机调用的证据不能替代后续云部署验收。
+
 ---
 
 # V5 历史验证记录
