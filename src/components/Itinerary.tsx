@@ -27,12 +27,21 @@ import {
   X,
 } from "lucide-react";
 import type { Activity } from "../data";
-import { activityCostFor, buildItinerary, createCalendar, type PlanOptions } from "../planner";
+import {
+  activityCostFor,
+  buildItinerary,
+  createCalendar,
+  type PlanOptions,
+} from "../planner";
 import "./itinerary.css";
+import DepartureChecklist from "./DepartureChecklist";
+import PlanFeedback from "./PlanFeedback";
 
 export interface ItineraryProps {
   items: Activity[];
   options: PlanOptions;
+  transient?: boolean;
+  onOfficialOpen?: () => void;
   onOptionsChange: (next: PlanOptions) => void;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
@@ -72,6 +81,8 @@ function download(content: string, filename: string, type: string) {
 export default function Itinerary({
   items,
   options,
+  transient = false,
+  onOfficialOpen,
   onOptionsChange,
   onRemove,
   onMove,
@@ -212,8 +223,8 @@ export default function Itinerary({
             继续发现城市
           </button>
           <span className="kicker">A LITTLE PLAN, A LOVELY WEEKEND</span>
-          <h1 id="itinerary-title">让心动，有个出发的计划。</h1>
-          <p>把想去的地方排进一天，时间和花费，一眼就有数。</p>
+          <h1 id="itinerary-title">你的周末，安排明白了。</h1>
+          <p>先看行程和全天预留，再核对开放与预约，一起出发。</p>
         </div>
         <div className="itinerary-heading-actions">
           <button className="outline" onClick={onExplore}>
@@ -231,105 +242,104 @@ export default function Itinerary({
         </div>
       </div>
 
-      <section className="itinerary-next-steps" aria-label="计划后的下一步">
-        <div>
-          <span className="itinerary-next-label">下一步，一起出发</span>
-          <p>从第一站约起，把这份计划变成周末回忆。</p>
-        </div>
-        <div className="itinerary-next-actions">
-          <button onClick={() => onTeam(items[0])}>
-            <Users size={17} /> 约搭子
-          </button>
-          <button onClick={onShare}>
-            <Send size={17} /> 分享计划
-          </button>
-          <button onClick={() => onCheckin(items[0])}>
-            <Camera size={17} /> 记录打卡
-          </button>
-        </div>
-      </section>
-
-      <div className="itinerary-settings" aria-label="行程设置">
-        <label>
-          <span>
-            <CalendarDays size={14} />
-            出发日期
-          </span>
-          <input
-            type="date"
-            value={options.date}
-            onChange={(event) => update("date", event.target.value)}
-            aria-label="行程出发日期"
-            required
-          />
-        </label>
-        <label>
-          <span>
-            <Clock3 size={14} />
-            开始时间
-          </span>
-          <input
-            type="time"
-            value={options.startTime}
-            onChange={(event) => update("startTime", event.target.value)}
-            aria-label="行程开始时间"
-            required
-          />
-        </label>
-        <label>
-          <span>
-            <Users size={14} />
-            同行人数
-          </span>
-          <select
-            value={options.people}
-            onChange={(event) => update("people", Number(event.target.value))}
-            aria-label="行程同行人数"
-          >
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((value) => (
-              <option value={value} key={value}>
-                {value} 人{value === 1 ? " · 自在出发" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>
-            <Wallet size={14} />
-            全天预算 / 人
-          </span>
-          <div className="itinerary-money-input">
-            <span>¥</span>
+      <DepartureChecklist
+        activities={items}
+        options={options}
+        weather={options.weather as "晴天" | "多云" | "下雨"}
+        transient={transient}
+        onAction={(action) => {
+          if (action === "official_open") onOfficialOpen?.();
+        }}
+      />
+      <details className="itinerary-controls-disclosure">
+        <summary>
+          调整日期、时间与预算
+          <small>
+            {options.date} · {options.startTime} 出发 · {options.people} 人 ·
+            全天预算 ¥{options.budget}/人 · {options.weather}
+          </small>
+        </summary>
+        <div className="itinerary-settings" aria-label="行程设置">
+          <label>
+            <span>
+              <CalendarDays size={14} />
+              出发日期
+            </span>
             <input
-              type="number"
-              min="0"
-              max="100000"
-              step="5"
-              value={options.budget}
-              onChange={(event) =>
-                update("budget", Math.max(0, Number(event.target.value) || 0))
-              }
-              aria-label="全天人均预算"
+              type="date"
+              value={options.date}
+              onChange={(event) => update("date", event.target.value)}
+              aria-label="行程出发日期"
+              required
             />
-          </div>
-        </label>
-        <label>
-          <span>
-            <CloudRain size={14} />
-            天气条件
-          </span>
-          <select
-            value={options.weather}
-            onChange={(event) => update("weather", event.target.value)}
-            aria-label="行程天气条件"
-          >
-            <option>多云</option>
-            <option>晴天</option>
-            <option>下雨</option>
-          </select>
-        </label>
-      </div>
-
+          </label>
+          <label>
+            <span>
+              <Clock3 size={14} />
+              开始时间
+            </span>
+            <input
+              type="time"
+              value={options.startTime}
+              onChange={(event) => update("startTime", event.target.value)}
+              aria-label="行程开始时间"
+              required
+            />
+          </label>
+          <label>
+            <span>
+              <Users size={14} />
+              同行人数
+            </span>
+            <select
+              value={options.people}
+              onChange={(event) => update("people", Number(event.target.value))}
+              aria-label="行程同行人数"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((value) => (
+                <option value={value} key={value}>
+                  {value} 人{value === 1 ? " · 自在出发" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>
+              <Wallet size={14} />
+              全天预算 / 人
+            </span>
+            <div className="itinerary-money-input">
+              <span>¥</span>
+              <input
+                type="number"
+                min="0"
+                max="100000"
+                step="5"
+                value={options.budget}
+                onChange={(event) =>
+                  update("budget", Math.max(0, Number(event.target.value) || 0))
+                }
+                aria-label="全天人均预算"
+              />
+            </div>
+          </label>
+          <label>
+            <span>
+              <CloudRain size={14} />
+              天气条件
+            </span>
+            <select
+              value={options.weather}
+              onChange={(event) => update("weather", event.target.value)}
+              aria-label="行程天气条件"
+            >
+              <option>多云</option>
+              <option>晴天</option>
+              <option>下雨</option>
+            </select>
+          </label>
+        </div>
+      </details>
       {rainyOutdoors && (
         <div className="itinerary-rain">
           <CloudRain size={22} />
@@ -415,7 +425,10 @@ export default function Itinerary({
                             {wait > 0 && (
                               <span>
                                 <Coffee size={12} />
-                                {stop.activity.category === "演出" ? "演出前留白" : "等候开放"}约 {hours(wait)}
+                                {stop.activity.category === "演出"
+                                  ? "演出前留白"
+                                  : "等候开放"}
+                                约 {hours(wait)}
                               </span>
                             )}
                           </div>
@@ -465,8 +478,48 @@ export default function Itinerary({
                             <div className="itinerary-stop-bottom">
                               <label className="stop-cost-editor">
                                 <span>活动预留 / 人 · 可改</span>
-                                <span>¥<input type="number" min="0" max="10000" step="1" value={activityCostFor(stop.activity, options)} aria-label={`${stop.activity.evidence.venueName}活动预留`} onChange={e => update("activityCosts", { ...options.activityCosts, [stop.activity.id]: Math.min(10000,Math.max(0,Number(e.target.value)||0)) })}/>
-                                {options.activityCosts?.[stop.activity.id] !== undefined && <button aria-label={`重置${stop.activity.evidence.venueName}活动预留`} onClick={() => { const next = { ...options.activityCosts }; delete next[stop.activity.id]; update("activityCosts",next); }} type="button">重置</button>}</span>
+                                <span>
+                                  ¥
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="10000"
+                                    step="1"
+                                    value={activityCostFor(
+                                      stop.activity,
+                                      options,
+                                    )}
+                                    aria-label={`${stop.activity.evidence.venueName}活动预留`}
+                                    onChange={(e) =>
+                                      update("activityCosts", {
+                                        ...options.activityCosts,
+                                        [stop.activity.id]: Math.min(
+                                          10000,
+                                          Math.max(
+                                            0,
+                                            Number(e.target.value) || 0,
+                                          ),
+                                        ),
+                                      })
+                                    }
+                                  />
+                                  {options.activityCosts?.[stop.activity.id] !==
+                                    undefined && (
+                                    <button
+                                      aria-label={`重置${stop.activity.evidence.venueName}活动预留`}
+                                      onClick={() => {
+                                        const next = {
+                                          ...options.activityCosts,
+                                        };
+                                        delete next[stop.activity.id];
+                                        update("activityCosts", next);
+                                      }}
+                                      type="button"
+                                    >
+                                      重置
+                                    </button>
+                                  )}
+                                </span>
                               </label>
                               <div>
                                 <button
@@ -744,6 +797,37 @@ export default function Itinerary({
           )}
         </aside>
       </div>
+      <section className="itinerary-next-steps" aria-label="计划后的下一步">
+        <div>
+          <span className="itinerary-next-label">下一步，一起出发</span>
+          <p>从第一站约起，把这份计划变成周末回忆。</p>
+        </div>
+        <div className="itinerary-next-actions">
+          <button onClick={() => onTeam(items[0])}>
+            <Users size={17} /> 约搭子
+          </button>
+          <button onClick={onShare}>
+            <Send size={17} /> 分享计划
+          </button>
+          <button onClick={() => onCheckin(items[0])}>
+            <Camera size={17} /> 记录打卡
+          </button>
+        </div>
+      </section>
+      <PlanFeedback
+        key={items.map((a) => a.id).join(",") + options.date}
+        onRevise={onCustomize || onExplore}
+        transient={transient}
+        onReview={() => {
+          const checklist =
+            document.querySelector<HTMLDetailsElement>(".departure-details");
+          if (checklist) {
+            checklist.open = true;
+            checklist.scrollIntoView({ behavior: "smooth", block: "center" });
+            checklist.querySelector("summary")?.focus();
+          }
+        }}
+      />
     </section>
   );
 }

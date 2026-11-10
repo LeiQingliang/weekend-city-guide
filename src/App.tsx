@@ -6,6 +6,7 @@ import ShareQr from "./components/ShareQr";
 import { TeamRelay, TeamReplyPreview } from "./components/TeamRelay";
 import { parseTeamReply, reviewTeamReply, type TeamReply } from "./teamRelay";
 import type { StoredTeam } from "./storage";
+import { recordInsight } from "./insights";
 import WeatherPanel from "./components/WeatherPanel";
 import { BriefComposer } from "./components/Experience";
 import {
@@ -743,6 +744,7 @@ export default function Home() {
   };
   const sharePlan = () => {
     if (!planned.length) return;
+    recordInsight("plan_shared", demo);
     const url = new URL(siteUrl());
     url.hash = new URLSearchParams({
       plan: JSON.stringify({ ids: plan, options: planOptions }),
@@ -854,6 +856,7 @@ export default function Home() {
       return;
     }
     setTeams([t, ...teams]);
+    recordInsight("team_created", demo);
     setCity(activities.find((a) => a.id === formActivity)!.city);
     close();
     setView("teams");
@@ -878,6 +881,7 @@ export default function Home() {
       return;
     }
     setEntries([entry, ...entries]);
+    recordInsight("checkin_saved", demo);
     if (demo) setDemoStep(4);
     close();
     setView("journal");
@@ -901,6 +905,7 @@ export default function Home() {
       author: "我",
       local: true,
     };
+    if (!editingGuide) recordInsight("guide_saved", demo);
     setGuides(
       editingGuide
         ? guides.map((g) => (g.id === editingGuide.id ? updated : g))
@@ -917,6 +922,7 @@ export default function Home() {
   };
   const adoptProposal = (proposal: WeekendProposal) => {
     const action = () => {
+      recordInsight("plan_adopted", demo);
       setPlan(proposal.activityIds);
       setPlanOptions(cleanOptions(proposal.options));
       setCity(activities.find((a) => a.id === proposal.activityIds[0])!.city);
@@ -1078,7 +1084,7 @@ export default function Home() {
               onClick={() => setModal("about")}
             >
               <Compass size={15} />
-              作品导览
+              产品与运营
             </button>
             <label className="city-select">
               <MapPin size={16} />
@@ -1101,15 +1107,16 @@ export default function Home() {
             </label>
             <button
               className="my-weekend"
+              aria-label="我的周末"
               onClick={() => switchView("itinerary")}
             >
               <CalendarDays size={16} />
-              我的周末{plan.length > 0 && <b>{plan.length}</b>}
+              <span className="my-weekend-text">我的周末</span>{plan.length > 0 && <b>{plan.length}</b>}
             </button>
           </div>
         </div>
       </header>
-      <main className="main" id="main-content" tabIndex={-1}>
+      <main className={`main${view === "discover" && plan.length ? " has-explorer-dock" : ""}`} id="main-content" tabIndex={-1}>
         {demo && (
           <DemoJourneyBar
             step={demoStep}
@@ -1156,6 +1163,8 @@ export default function Home() {
           <Itinerary
             items={planned}
             options={planOptions}
+            transient={demo}
+            onOfficialOpen={() => recordInsight("official_opened", demo)}
             onOptionsChange={changePlanOptions}
             onRemove={(id) => setPlan(plan.filter((x) => x !== id))}
             onMove={movePlan}

@@ -45,8 +45,8 @@ export default function Explorer(p: Props) {
     <section className="explorer-intro edition-hero" aria-label="周末城市提案">
       <div className="explorer-heading">
         <span className="explorer-eyebrow"><span /> WEEKEND FIELD NOTES <i>周末城市探索指南</i></span>
-        <h1>周末不赶路。<br /><em>去发现，一点新鲜。</em></h1>
-        <p>看展、逛市集，或沿着河岸走一走。<br className="mobile-only" />把想去的地方，变成刚刚好的周末。</p>
+        <h1>周末去哪玩？<br /><em>时间、预算，一起算。</em></h1>
+        <p>按兴趣、天气和预算，选一份能出发的计划。<br className="mobile-only" />看清费用、核对开放，再约朋友一起走。</p>
         <div className="explorer-heading-actions"><button className="edition-primary" onClick={p.onCustomize}>定制我的周末 <ArrowUpRight size={18} /></button><button className="edition-play" onClick={p.onTour}>90 秒体验 <ArrowRight size={15} /></button></div>
       </div>
       <div className="explorer-cover edition-photo">
