@@ -103,7 +103,8 @@
   color: #385738;
 }
 .intent-workspace {
-  scroll-margin-top: 66px;
+  /* The dialog already reserves 65px for its sticky toolbar. */
+  scroll-margin-top: 0;
 }
 .intent-update details > summary {
   cursor: pointer;
