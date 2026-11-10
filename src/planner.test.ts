@@ -138,6 +138,30 @@ test("empty itinerary has no phantom meal or transport cost", () => {
   assert.equal(result.totalMinutes, 0);
   assert.deepEqual(result.stops, []);
   assert.equal(result.overBudget, false);
+  assert.equal(result.overTime, false);
+});
+
+test("explicit duration limits include waiting, accept equality and keep legacy plans compatible", () => {
+  const museum = activity({ evidence: activityEvidence["sh-gallery"] });
+  const exact = buildItinerary([museum], { ...options, maxDurationMinutes: 210 });
+  assert.equal(exact.totalMinutes, 210);
+  assert.equal(exact.overTime, false);
+  const exceeded = buildItinerary([museum], { ...options, maxDurationMinutes: 209 });
+  assert.equal(exceeded.overTime, true);
+  assert.ok(exceeded.warnings.some(warning => warning.includes("209 分钟可用时间 1 分钟")));
+  for (const maxDurationMinutes of [undefined, 0, 59, 721, NaN, Infinity, 150.5])
+    assert.equal(buildItinerary([museum], { ...options, maxDurationMinutes }).overTime, false);
+  assert.equal(buildItinerary([], { ...options, maxDurationMinutes: 60 }).overTime, false);
+});
+
+test("rain alternatives respect an explicit limit even when the original outing was already too long", () => {
+  const walk = activity({ id: "walk", indoor: false, category: "户外", duration: "5 小时", price: 0 });
+  const longIndoor = activity({ id: "long", duration: "4 小时" });
+  const shortIndoor = activity({ id: "short", duration: "2 小时" });
+  const limited = { ...options, maxDurationMinutes: 180 };
+  assert.equal(createRainAlternative([walk], limited, [longIndoor]), null);
+  assert.deepEqual(createRainAlternative([walk], limited, [longIndoor, shortIndoor])?.map(item => item.id), ["short"]);
+  assert.equal(createRainAlternative([longIndoor, walk], limited, [shortIndoor]), null);
 });
 
 test("duration ranges use midpoint and only consecutive stops incur a transfer", () => {
@@ -317,6 +341,23 @@ test("calendar escapes delimiters and newlines, folds UTF-8 lines to 75 octets",
   for (const line of calendar.split("\r\n"))
     assert.ok(Buffer.byteLength(line, "utf8") <= 75, `Too long: ${line}`);
   assert.ok(calendar.endsWith("END:VCALENDAR\r\n"));
+});
+
+test("calendar preserves all feasibility warnings and the complete per-person cost breakdown", () => {
+  const museum = activity({ evidence: activityEvidence["sh-gallery"] });
+  const limited = { ...options, date: "2026-11-16", budget: 50, maxDurationMinutes: 120, activityCosts: { [museum.id]: 80 } };
+  const result = buildItinerary([museum], limited);
+  assert.equal(result.overTime, true);
+  assert.equal(result.overBudget, true);
+  assert.equal(result.openingConflicts.length, 1);
+  const calendar = createCalendar([museum], limited);
+  const unfolded = calendar.replace(/\r\n /g, "");
+  for (const warning of result.warnings) assert.ok(unfolded.includes(warning), warning);
+  assert.ok(unfolded.includes("活动合计 ¥80 + 餐饮 ¥30 + 交通 ¥15 / 人"));
+  assert.ok(unfolded.includes("人均全天预算 ¥50；同行参考合计 ¥250"));
+  assert.ok(unfolded.includes("SUMMARY:【需调整】周末看展"));
+  assert.ok(unfolded.includes("STATUS:TENTATIVE"));
+  for (const line of calendar.split("\r\n")) assert.ok(Buffer.byteLength(line, "utf8") <= 75);
 });
 
 test("empty calendar stays valid and contains no events", () => {

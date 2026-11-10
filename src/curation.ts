@@ -9,6 +9,8 @@ export type WeekendInterest = Activity["category"];
 export interface WeekendBrief {
   city: City;
   interests: WeekendInterest[];
+  indoorOnly?: boolean;
+  excludedInterests?: WeekendInterest[];
   pace: "relaxed" | "balanced";
   /** Full outing budget per person, including food and transport. */
   budget: number;
@@ -50,12 +52,14 @@ export function defaultWeekendBrief(
   return {
     city,
     interests: [],
+    indoorOnly: false,
+    excludedInterests: [],
     pace: "balanced",
     budget: Number.isFinite(options.budget) ? Math.max(0, options.budget) : 150,
     people: Math.max(1, Math.min(12, Math.round(people) || 2)),
     date: options.date,
     startTime: options.startTime,
-    maxDurationMinutes: 300,
+    maxDurationMinutes: typeof options.maxDurationMinutes === "number" && Number.isInteger(options.maxDurationMinutes) && options.maxDurationMinutes >= 60 && options.maxDurationMinutes <= 720 ? options.maxDurationMinutes : 300,
     weather,
     mealBudget: 30,
     transportBudget: 15,
@@ -70,6 +74,7 @@ const optionsFor = (brief: WeekendBrief): PlanOptions => ({
   mealBudget: brief.mealBudget,
   transportBudget: brief.transportBudget,
   weather: brief.weather,
+  maxDurationMinutes: brief.maxDurationMinutes,
 });
 
 function isValidBrief(brief: WeekendBrief): boolean {
@@ -80,8 +85,10 @@ function isValidBrief(brief: WeekendBrief): boolean {
     [brief.budget, brief.mealBudget, brief.transportBudget].every(
       (value) => Number.isFinite(value) && value >= 0,
     ) &&
-    Number.isFinite(brief.maxDurationMinutes) &&
-    brief.maxDurationMinutes > 0 &&
+    Number.isInteger(brief.maxDurationMinutes) &&
+    brief.maxDurationMinutes >= 60 && brief.maxDurationMinutes <= 720 &&
+    (brief.indoorOnly === undefined || typeof brief.indoorOnly === "boolean") &&
+    (brief.excludedInterests === undefined || (Array.isArray(brief.excludedInterests) && brief.excludedInterests.every(category => ["展览", "市集", "演出", "户外"].includes(category)))) &&
     Number.isInteger(brief.people) &&
     brief.people >= 1 &&
     brief.people <= 12 &&
@@ -99,12 +106,19 @@ interface Candidate {
 }
 const companionInterests = (people: number): WeekendInterest[] =>
   people === 1 ? ["展览", "户外"] : people >= 3 ? ["市集", "户外", "演出"] : [];
+
+const matchesHardPreferences = (item: Activity, brief: WeekendBrief) =>
+  item.city === brief.city &&
+  ((brief.weather !== "下雨" && !brief.indoorOnly) || item.indoor) &&
+  !(brief.excludedInterests || []).includes(item.category);
+
+/** A product scope boundary for one-day outings, not a claim about a venue's closing time. */
+const endsWithinPlanningDay = (end: string | undefined, date: string) =>
+  !!end && end.slice(0, 10) === date && end <= `${date}T22:00`;
+
 function candidatesFor(brief: WeekendBrief): Candidate[] {
   if (!isValidBrief(brief)) return [];
-  const pool = activities.filter(
-    (item) =>
-      item.city === brief.city && (brief.weather !== "下雨" || item.indoor),
-  );
+  const pool = activities.filter(item => matchesHardPreferences(item, brief));
   const options = optionsFor(brief);
   const routes: Activity[][] = pool.map((item) => [item]);
   if (brief.pace === "balanced")
@@ -117,8 +131,9 @@ function candidatesFor(brief: WeekendBrief): Candidate[] {
     const itinerary = buildItinerary(items, options);
     if (
       itinerary.overBudget ||
+      itinerary.overTime ||
       itinerary.openingConflicts.length > 0 ||
-      itinerary.totalMinutes > brief.maxDurationMinutes
+      !endsWithinPlanningDay(itinerary.stops.at(-1)?.end, brief.date)
     )
       continue;
     const matched = items.filter((item) =>
@@ -223,11 +238,15 @@ function toProposal(
     `约 ${durationLabel(candidate.duration)}，预计 ${candidate.end.slice(11)} 结束，在你的可用时间内`,
     brief.weather === "下雨"
       ? "活动都在室内，转场仍建议带好雨具"
+      : brief.indoorOnly
+        ? "按你的要求只安排室内地点，转场仍需留意天气"
       : allIndoor
         ? "以室内活动为主，天气变化也有余地"
         : `${brief.weather}情景下，给户外散步留一点时间`,
   ];
   const tradeoffs = [];
+  if (brief.excludedInterests?.length)
+    tradeoffs.push(`按你的要求不安排${[...new Set(brief.excludedInterests)].join("、")}，仅比较剩余类型`);
   if (index > 0 && first) {
     if (savings > 0)
       tradeoffs.push(
@@ -286,22 +305,30 @@ export function recommendWeekendProposals(
 export function explainWeekendConstraints(brief: WeekendBrief): string[] {
   if (!isValidBrief(brief))
     return ["请填写有效的城市、日期、时间、人数和非负预算，再看看周末的可能。"];
-  const weatherPool = activities.filter(
-    (item) =>
-      item.city === brief.city && (brief.weather !== "下雨" || item.indoor),
-  );
-  const pool = weatherPool.filter(item => !buildItinerary([item], optionsFor(brief)).openingConflicts.length);
-  if (!pool.length) return [
+  const preferencePool = activities.filter(item => matchesHardPreferences(item, brief));
+  if (!preferencePool.length) return [
+    "按当前城市、室内要求和排除类型，没有可选目的地；请调整偏好，不会自动放宽你的条件。",
+    ...(brief.excludedInterests?.length ? [`已排除：${[...new Set(brief.excludedInterests)].join("、")}。`] : []),
+  ];
+  const openPool = preferencePool.filter(item => !buildItinerary([item], optionsFor(brief)).openingConflicts.length);
+  if (!openPool.length) return [
     "按已知常规开放安排，当前日期或出发时间没有可完整游玩的目的地；请换一天、提前出发，或核实场馆特别开放公告。",
     ...(brief.weather === "下雨" ? ["雨天仍排除室外地点，不用室外活动填补空缺。"] : []),
+  ];
+  const pool = openPool.filter(item => endsWithinPlanningDay(buildItinerary([item], optionsFor(brief)).stops.at(-1)?.end, brief.date));
+  if (!pool.length) return [
+    "当前开始时间没有能在所选日期 22:00 前结束的方案；请提前开始。本工具规划当天的周末出游，这不是对场所营业时间的判断。",
+    ...(brief.weather === "下雨" ? ["雨天仍只考虑室内地点。"] : []),
   ];
   const minimumCost =
     Math.min(...pool.map((item) => item.price)) +
     brief.mealBudget +
     brief.transportBudget;
   const reasons: string[] = [];
-  if (pool.length < weatherPool.length)
+  if (openPool.length < preferencePool.length)
     reasons.push("已排除常规闭馆日、错过入场时间或无法在闭馆前完成的场馆。");
+  if (pool.length < openPool.length)
+    reasons.push("一天出游方案须在所选日期 22:00 前结束；已排除跨日或更晚结束的安排，这不代表场所已关闭。");
   if (brief.budget < brief.mealBudget + brief.transportBudget)
     reasons.push(
       `餐饮与交通已预留 ¥${brief.mealBudget + brief.transportBudget}/人，超过了当前全天预算 ¥${brief.budget}。`,

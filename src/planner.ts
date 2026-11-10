@@ -17,7 +17,7 @@ export function createRainAlternative(
   const limit = buildItinerary(items, options).totalMinutes;
   if (next.length) {
     const preserved = buildItinerary(next, alternativeOptions);
-    if (preserved.overBudget || preserved.openingConflicts.length) return null;
+    if (preserved.overBudget || preserved.overTime || preserved.openingConflicts.length) return null;
   }
   for (const item of items.filter((item) => !item.indoor)) {
     const replacement = catalog
@@ -30,7 +30,7 @@ export function createRainAlternative(
       .sort((a, b) => a.price - b.price)
       .find((candidate) => {
         const result = buildItinerary([...next, candidate], alternativeOptions);
-        return !result.overBudget && !result.openingConflicts.length && result.totalMinutes <= limit;
+        return !result.overBudget && !result.overTime && !result.openingConflicts.length && result.totalMinutes <= limit;
       });
     if (replacement) next.push(replacement);
   }
@@ -48,6 +48,8 @@ export interface PlanOptions {
   weather: string;
   /** Optional user-adjusted per-person allowances by activity ID; never proof of payment or a live quote. */
   activityCosts?: Record<string, number>;
+  /** First stop to last stop, including waits and transfers; valid integer range 60–720. */
+  maxDurationMinutes?: number;
 }
 
 export interface ItineraryStop {
@@ -71,6 +73,8 @@ export interface ItineraryResult {
   /** Elapsed time, including transfers and any wait before an evening performance. */
   totalMinutes: number;
   overBudget: boolean;
+  /** False for legacy plans with no valid explicit duration limit. */
+  overTime: boolean;
   warnings: string[];
   /** Conflicts with published regular opening rules, not a live operating status. */
   openingConflicts: string[];
@@ -222,6 +226,13 @@ export function buildItinerary(
   const groupTotal = money(totalPerPerson * people);
   const overBudget = totalPerPerson > money(options.budget);
   const totalMinutes = items.length ? Math.round((cursor - start) / MINUTE) : 0;
+  const durationLimit = typeof options.maxDurationMinutes === "number" &&
+    Number.isInteger(options.maxDurationMinutes) &&
+    options.maxDurationMinutes >= 60 && options.maxDurationMinutes <= 720
+    ? options.maxDurationMinutes : undefined;
+  const overTime = durationLimit !== undefined && totalMinutes > durationLimit;
+  if (overTime)
+    warnings.push(`预计行程 ${totalMinutes} 分钟，超过你设置的 ${durationLimit} 分钟可用时间 ${totalMinutes - durationLimit!} 分钟；请减少活动或调整可用时间。`);
   if (overBudget)
     warnings.push(
       `预计每人超出全天预算 ¥${money(totalPerPerson - money(options.budget))}，可减少活动，或核对并调整各项规划金额。`,
@@ -261,6 +272,7 @@ export function buildItinerary(
     groupTotal,
     totalMinutes,
     overBudget,
+    overTime,
     warnings,
     openingConflicts,
   };
@@ -328,8 +340,12 @@ export function createCalendar(
       "个人周末计划 · 时间为估算，非预约或已确认场次。",
       stop.activity.subtitle,
       `活动规划 ¥${activityCostFor(stop.activity, options)} / 人；全天含餐饮交通规划 ¥${itinerary.totalPerPerson} / 人。`,
+      `全天费用拆分：活动合计 ¥${itinerary.activityCost} + 餐饮 ¥${money(options.mealBudget)} + 交通 ¥${money(options.transportBudget)} / 人；人均全天预算 ¥${money(options.budget)}；同行参考合计 ¥${itinerary.groupTotal}。`,
+      `完整安排：${itinerary.stops[0].start.replace("T", " ")} 至 ${itinerary.stops.at(-1)!.end.replace("T", " ")}（Asia/Shanghai），共 ${itinerary.totalMinutes} 分钟。`,
       `交通建议：${stop.activity.transport}`,
       "金额为自行规划，不代表支付或票价确认。相邻活动转场按 25 分钟估算，未计算实际导航路线；出发前核实开放时间、预约、天气与交通。",
+      "时间范围为首站开始至末站结束，不含往返交通；餐饮仅预留费用，用餐时间需自行安排。",
+      ...itinerary.warnings.map(warning => `计划提醒：${warning}`),
     ].join("\n");
     lines.push(
       "BEGIN:VEVENT",
@@ -337,7 +353,7 @@ export function createCalendar(
       `DTSTAMP:${stamp}`,
       `DTSTART;TZID=Asia/Shanghai:${icsStamp(stop.start)}`,
       `DTEND;TZID=Asia/Shanghai:${icsStamp(stop.end)}`,
-      `SUMMARY:${escapeIcs(stop.activity.title)}`,
+      `SUMMARY:${escapeIcs(`${itinerary.openingConflicts.length || itinerary.overTime || itinerary.overBudget ? "【需调整】" : ""}${stop.activity.title}`)}`,
       `LOCATION:${escapeIcs(`${stop.activity.city} · ${stop.activity.location}`)}`,
       `DESCRIPTION:${escapeIcs(description)}`,
       "STATUS:TENTATIVE",

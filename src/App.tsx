@@ -1,5 +1,6 @@
 import { asset, siteUrl } from "./paths";
 import Itinerary from "./components/Itinerary";
+import IntentPlanner from "./components/IntentPlanner";
 import Explorer from "./components/Explorer";
 import ActivityDetails from "./components/ActivityDetails";
 import ShareQr from "./components/ShareQr";
@@ -9,9 +10,7 @@ import type { StoredTeam } from "./storage";
 import { recordInsight } from "./insights";
 import WeatherPanel from "./components/WeatherPanel";
 import { BriefComposer } from "./components/Experience";
-import {
-  ProposalPreview,
-} from "./components/DiscoveryEdition";
+import { ProposalPreview } from "./components/DiscoveryEdition";
 import WeekendStudio from "./components/WeekendStudio";
 import ProductGuide, { DemoJourneyBar } from "./components/ReviewerGuide";
 import type { WeekendProposal, WeekendInterest } from "./curation";
@@ -200,13 +199,30 @@ function cleanOptions(input: unknown): PlanOptions {
       /^([01]\d|2[0-3]):[0-5]\d$/.test(x.startTime)
         ? x.startTime
         : "10:00",
-    budget: num(x.budget, 150),
+    budget: num(x.budget, 150, 0, 100000),
+    ...(Number.isInteger(x.maxDurationMinutes) &&
+    x.maxDurationMinutes! >= 60 &&
+    x.maxDurationMinutes! <= 720
+      ? { maxDurationMinutes: x.maxDurationMinutes }
+      : {}),
     people: Math.round(num(x.people, 2, 1, 12)),
     mealBudget: num(x.mealBudget, 30),
     transportBudget: num(x.transportBudget, 15),
-    activityCosts: x.activityCosts && typeof x.activityCosts === "object" && !Array.isArray(x.activityCosts)
-      ? Object.fromEntries(Object.entries(x.activityCosts).filter(([id, value]) => activities.some(a => a.id === id) && typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10000))
-      : {},
+    activityCosts:
+      x.activityCosts &&
+      typeof x.activityCosts === "object" &&
+      !Array.isArray(x.activityCosts)
+        ? Object.fromEntries(
+            Object.entries(x.activityCosts).filter(
+              ([id, value]) =>
+                activities.some((a) => a.id === id) &&
+                typeof value === "number" &&
+                Number.isFinite(value) &&
+                value >= 0 &&
+                value <= 10000,
+            ),
+          )
+        : {},
     weather: ["晴天", "多云", "下雨"].includes(String(x.weather))
       ? String(x.weather)
       : "多云",
@@ -228,7 +244,14 @@ export default function Home() {
     [ready, setReady] = useState(false);
   const [detail, setDetail] = useState<Activity | null>(null),
     [modal, setModal] = useState<
-      "team" | "checkin" | "guide" | "plan" | "about" | "studio" | null
+      | "team"
+      | "checkin"
+      | "guide"
+      | "plan"
+      | "about"
+      | "studio"
+      | "intent"
+      | null
     >(null),
     [guideDetail, setGuideDetail] = useState<Guide | null>(null),
     [teamDetail, setTeamDetail] = useState<Team | null>(null),
@@ -267,8 +290,15 @@ export default function Home() {
     useState<WeekendProposal | null>(null);
   const [demo, setDemo] = useState(false);
   const [weatherSummary, setWeatherSummary] = useState("");
+  const [intentSeed, setIntentSeed] = useState("");
+  const [intentFromPlan, setIntentFromPlan] = useState(false);
+  const [formDate, setFormDate] = useState("");
   const [teamReply, setTeamReply] = useState<TeamReply | null>(null);
-  const [studioInspiration, setStudioInspiration] = useState<{ city?: City; weather?: Weather; interests?: WeekendInterest[] } | null>(null);
+  const [studioInspiration, setStudioInspiration] = useState<{
+    city?: City;
+    weather?: Weather;
+    interests?: WeekendInterest[];
+  } | null>(null);
   const [demoStep, setDemoStep] = useState(0);
   const demoSnapshot = useRef<
     (Persisted & { view: View; query: string; onlySaved: boolean }) | null
@@ -347,8 +377,10 @@ export default function Home() {
     }
     if (params.has("reply")) {
       const parsed = parseTeamReply(params.get("reply")!);
-      if (parsed.ok) { setTeamReply(parsed.reply); setView("teams"); }
-      else notice(parsed.error);
+      if (parsed.ok) {
+        setTeamReply(parsed.reply);
+        setView("teams");
+      } else notice(parsed.error);
     }
     if (params.has("invite")) {
       try {
@@ -487,7 +519,10 @@ export default function Home() {
     if (!overlay) return;
     const previous = document.activeElement as HTMLElement;
     document.body.style.overflow = "hidden";
-    const t = setTimeout(() => dialogRef.current?.focus(), 10);
+    const t = setTimeout(
+      () => dialogRef.current?.focus({ preventScroll: true }),
+      10,
+    );
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       if (e.key === "Tab") {
@@ -576,8 +611,21 @@ export default function Home() {
         : "已加入周末计划，可以安排时间与预算了",
     );
   };
-  const openForm = (kind: "team" | "checkin" | "guide", a?: Activity) => {
+  const openForm = (
+    kind: "team" | "checkin" | "guide",
+    a?: Activity,
+    plannedStart?: string,
+  ) => {
     close();
+    if (kind === "team") {
+      const target = a?.id || planned[0]?.id;
+      const start =
+        plannedStart ||
+        buildItinerary(planned, planOptions).stops.find(
+          (stop) => stop.activity.id === target,
+        )?.start;
+      setFormDate(start || `${planOptions.date}T${planOptions.startTime}`);
+    }
     setFormActivity(
       a?.id ||
         planned[0]?.id ||
@@ -710,7 +758,11 @@ export default function Home() {
     let spent = 0;
     const picked: Activity[] = [];
     for (const a of available) {
-      const estimate = buildItinerary([...picked, a], { ...planOptions, weather, people });
+      const estimate = buildItinerary([...picked, a], {
+        ...planOptions,
+        weather,
+        people,
+      });
       if (
         a.category !== "演出" &&
         picked.length < 2 &&
@@ -770,7 +822,14 @@ export default function Home() {
       notice("当前预算或时长没有合适的室内方案，可在定制中调整条件");
       return;
     }
-    const nextOptions = { ...planOptions, activityCosts: Object.fromEntries(Object.entries(planOptions.activityCosts || {}).filter(([id]) => plan.includes(id) && alternative.some(a => a.id === id))) };
+    const nextOptions = {
+      ...planOptions,
+      activityCosts: Object.fromEntries(
+        Object.entries(planOptions.activityCosts || {}).filter(
+          ([id]) => plan.includes(id) && alternative.some((a) => a.id === id),
+        ),
+      ),
+    };
     const summary = buildItinerary(alternative, nextOptions);
     setConfirmation({
       title: "换成这份雨天备用计划？",
@@ -919,6 +978,12 @@ export default function Home() {
     close();
     setStudioInspiration(null);
     setModal("studio");
+  };
+  const openIntent = (text = "", fromPlan = false) => {
+    close();
+    setIntentSeed(text);
+    setIntentFromPlan(fromPlan);
+    setModal("intent");
   };
   const adoptProposal = (proposal: WeekendProposal) => {
     const action = () => {
@@ -1111,12 +1176,17 @@ export default function Home() {
               onClick={() => switchView("itinerary")}
             >
               <CalendarDays size={16} />
-              <span className="my-weekend-text">我的周末</span>{plan.length > 0 && <b>{plan.length}</b>}
+              <span className="my-weekend-text">我的周末</span>
+              {plan.length > 0 && <b>{plan.length}</b>}
             </button>
           </div>
         </div>
       </header>
-      <main className={`main${view === "discover" && plan.length ? " has-explorer-dock" : ""}`} id="main-content" tabIndex={-1}>
+      <main
+        className={`main${view === "discover" && plan.length ? " has-explorer-dock" : ""}`}
+        id="main-content"
+        tabIndex={-1}
+      >
         {demo && (
           <DemoJourneyBar
             step={demoStep}
@@ -1170,8 +1240,9 @@ export default function Home() {
             onMove={movePlan}
             onExplore={() => switchView("discover")}
             onCustomize={openStudio}
+            onIntent={() => openIntent("", true)}
             onShare={sharePlan}
-            onTeam={(a) => openForm("team", a)}
+            onTeam={(a, start) => openForm("team", a, start)}
             onCheckin={(a) => openForm("checkin", a)}
             onDetail={setDetail}
             onClear={() =>
@@ -1194,22 +1265,67 @@ export default function Home() {
             e.target.value = "";
           }}
         />
-        {view === "discover" && <Explorer
-          city={city} category={category} budget={budget} weather={weather} people={people}
-          query={query} onlySaved={onlySaved} favorites={favorites} plan={plan} options={planOptions}
-          results={results} weatherSummary={weatherSummary}
-          onCategory={(value) => { setCategory(value); setOnlySaved(false); }}
-          onBudget={(value) => { setBudget(value); setOnlySaved(false); }}
-          onWeather={setScenario} onQuery={setQuery} onSaved={() => setOnlySaved(!onlySaved)}
-          onFavorite={toggleFavorite} onAdd={addPlan} onRemove={(id) => setPlan(plan.filter(p => p !== id))}
-          onDetail={setDetail} onCustomize={openStudio} onTour={startDemo} onPreview={setProposalPreview}
-          onPlan={() => switchView("itinerary")} onReset={reset}
-          tools={<><BriefComposer onApply={applyBrief} recognized={recognized} onQuickPlan={createQuickPlan}/>
-            {ready && <WeatherPanel city={city} date={planOptions.date} scenario={weather}
-              scenarioRequest={scenarioRequest} mode={weatherMode} onModeChange={setWeatherMode}
-              onWeatherChange={(next) => applyWeather(next)} onDateChange={(date) => setPlanOptions(p => ({...p,date}))}
-              onSummaryChange={setWeatherSummary}/>}</>}
-        />}
+        {view === "discover" && (
+          <Explorer
+            city={city}
+            category={category}
+            budget={budget}
+            weather={weather}
+            people={people}
+            query={query}
+            onlySaved={onlySaved}
+            favorites={favorites}
+            plan={plan}
+            options={planOptions}
+            results={results}
+            weatherSummary={weatherSummary}
+            onCategory={(value) => {
+              setCategory(value);
+              setOnlySaved(false);
+            }}
+            onBudget={(value) => {
+              setBudget(value);
+              setOnlySaved(false);
+            }}
+            onWeather={setScenario}
+            onQuery={setQuery}
+            onSaved={() => setOnlySaved(!onlySaved)}
+            onFavorite={toggleFavorite}
+            onAdd={addPlan}
+            onRemove={(id) => setPlan(plan.filter((p) => p !== id))}
+            onDetail={setDetail}
+            onCustomize={openStudio}
+            onTour={startDemo}
+            onPreview={setProposalPreview}
+            onIntent={(text) => openIntent(text)}
+            onPlan={() => switchView("itinerary")}
+            onReset={reset}
+            tools={
+              <>
+                <BriefComposer
+                  onApply={applyBrief}
+                  recognized={recognized}
+                  onQuickPlan={createQuickPlan}
+                />
+                {ready && (
+                  <WeatherPanel
+                    city={city}
+                    date={planOptions.date}
+                    scenario={weather}
+                    scenarioRequest={scenarioRequest}
+                    mode={weatherMode}
+                    onModeChange={setWeatherMode}
+                    onWeatherChange={(next) => applyWeather(next)}
+                    onDateChange={(date) =>
+                      setPlanOptions((p) => ({ ...p, date }))
+                    }
+                    onSummaryChange={setWeatherSummary}
+                  />
+                )}
+              </>
+            }
+          />
+        )}
         {view === "teams" && (
           <>
             <PageHeading
@@ -1245,7 +1361,9 @@ export default function Home() {
                               ? "示例小队"
                               : t.myResponse?.status === "confirmed"
                                 ? "已生成参加回执"
-                                : t.myResponse?.status === "withdrawn" ? "已生成撤回回执" : "收到的邀请"}
+                                : t.myResponse?.status === "withdrawn"
+                                  ? "已生成撤回回执"
+                                  : "收到的邀请"}
                         </span>
                         <span className="team-count">
                           <Users size={14} />
@@ -1268,7 +1386,11 @@ export default function Home() {
                         <div className="team-footer">
                           <span>
                             <i className="avatar">{t.host ? "我" : "友"}</i>
-                            {t.host ? "我发起的队伍" : /^t\d+$/.test(t.id) ? "示例探索小队" : "朋友发来的邀请"}
+                            {t.host
+                              ? "我发起的队伍"
+                              : /^t\d+$/.test(t.id)
+                                ? "示例探索小队"
+                                : "朋友发来的邀请"}
                           </span>
                           <button
                             className="outline"
@@ -1374,7 +1496,7 @@ export default function Home() {
                                     0,
                                     60,
                                   ),
-                                text: `这次的周末体验${e.text.length > 900 ? "（打卡节选）" : ""}\n${e.text.slice(0,900)}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动规划预留：¥${a?.price || 0}。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
+                                text: `这次的周末体验${e.text.length > 900 ? "（打卡节选）" : ""}\n${e.text.slice(0, 900)}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动规划预留：¥${a?.price || 0}。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
                               });
                             }}
                           >
@@ -1497,7 +1619,7 @@ export default function Home() {
           }}
         >
           <div
-            className={`dialog ${detail ? "activity-dialog" : ""}`}
+            className={`dialog ${detail ? "activity-dialog" : ""} ${modal === "intent" ? "intent-dialog" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-label={
@@ -1531,15 +1653,43 @@ export default function Home() {
                 <X size={20} />
               </button>
             </div>
-            {detail && <ActivityDetails activity={detail} people={people} selected={plan.includes(detail.id)} onAdd={() => addPlan(detail)} onTeam={() => openForm("team", detail)}/>}
-            {teamReply && <TeamReplyPreview team={teams.find(t => t.id === teamReply.teamId)} reply={teamReply} onCancel={close} onConfirm={(incoming) => {
-              const target=teams.find(t=>t.id===incoming.teamId);
-              if (!target) { notice("请在发起这个小队的浏览器中打开回执"); return; }
-              const review=reviewTeamReply(target,incoming);
-              if (!review.ok) { notice(review.error); return; }
-              setTeams(current=>current.map(t=>t.id===target.id ? review.nextTeam : t));
-              close(); setTeamDetail(review.nextTeam); setView("teams"); notice(review.message);
-            }}/>}
+            {detail && (
+              <ActivityDetails
+                activity={detail}
+                people={people}
+                selected={plan.includes(detail.id)}
+                onAdd={() => addPlan(detail)}
+                onTeam={() => openForm("team", detail)}
+              />
+            )}
+            {teamReply && (
+              <TeamReplyPreview
+                team={teams.find((t) => t.id === teamReply.teamId)}
+                reply={teamReply}
+                onCancel={close}
+                onConfirm={(incoming) => {
+                  const target = teams.find((t) => t.id === incoming.teamId);
+                  if (!target) {
+                    notice("请在发起这个小队的浏览器中打开回执");
+                    return;
+                  }
+                  const review = reviewTeamReply(target, incoming);
+                  if (!review.ok) {
+                    notice(review.error);
+                    return;
+                  }
+                  setTeams((current) =>
+                    current.map((t) =>
+                      t.id === target.id ? review.nextTeam : t,
+                    ),
+                  );
+                  close();
+                  setTeamDetail(review.nextTeam);
+                  setView("teams");
+                  notice(review.message);
+                }}
+              />
+            )}
             {teamDetail &&
               (() => {
                 const a = activities.find(
@@ -1606,7 +1756,17 @@ export default function Home() {
                         </button>
                       ) : null}
                     </div>
-                    <TeamRelay team={teamDetail} example={/^t\d+$/.test(teamDetail.id)} baseUrl={siteUrl()} onChange={(next) => { setTeams(current => current.map(t => t.id === next.id ? next : t)); setTeamDetail(next); }} />
+                    <TeamRelay
+                      team={teamDetail}
+                      example={/^t\d+$/.test(teamDetail.id)}
+                      baseUrl={siteUrl()}
+                      onChange={(next) => {
+                        setTeams((current) =>
+                          current.map((t) => (t.id === next.id ? next : t)),
+                        );
+                        setTeamDetail(next);
+                      }}
+                    />
                     {teamDetail.host && (
                       <button
                         className="text-danger"
@@ -1641,16 +1801,28 @@ export default function Home() {
                   alt="攻略氛围配图"
                 />
                 <div className="guide-text pre-line">{guideDetail.text}</div>
-                <button className="outline full guide-to-plan" onClick={() => {
-                  const inspiration = guideDetail;
-                  close();
-                  setStudioInspiration({
-                    city: ["上海", "杭州", "北京"].includes(inspiration.city) ? inspiration.city as City : undefined,
-                    interests: inspiration.id === "g1" ? ["户外"] : inspiration.id === "g2" ? ["展览"] : undefined,
-                    weather: inspiration.id === "g2" ? "下雨" : undefined,
-                  });
-                  setModal("studio");
-                }}>参考这份灵感，定制我的周末 <ArrowRight size={16}/></button>
+                <button
+                  className="outline full guide-to-plan"
+                  onClick={() => {
+                    const inspiration = guideDetail;
+                    close();
+                    setStudioInspiration({
+                      city: ["上海", "杭州", "北京"].includes(inspiration.city)
+                        ? (inspiration.city as City)
+                        : undefined,
+                      interests:
+                        inspiration.id === "g1"
+                          ? ["户外"]
+                          : inspiration.id === "g2"
+                            ? ["展览"]
+                            : undefined,
+                      weather: inspiration.id === "g2" ? "下雨" : undefined,
+                    });
+                    setModal("studio");
+                  }}
+                >
+                  参考这份灵感，定制我的周末 <ArrowRight size={16} />
+                </button>
                 <button
                   className="primary full"
                   onClick={() => shareGuide(guideDetail)}
@@ -1730,7 +1902,13 @@ export default function Home() {
                   一起去做什么
                   <select
                     value={formActivity}
-                    onChange={(e) => setFormActivity(e.target.value)}
+                    onChange={(e) => {
+                      setFormActivity(e.target.value);
+                      const stop = planSummary.stops.find(
+                        (s) => s.activity.id === e.target.value,
+                      );
+                      if (stop) setFormDate(stop.start);
+                    }}
                   >
                     {activities.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -1754,7 +1932,8 @@ export default function Home() {
                     <input
                       type="datetime-local"
                       name="date"
-                      defaultValue={`${planOptions.date}T${planOptions.startTime}`}
+                      value={formDate}
+                      onChange={(e) => setFormDate(e.target.value)}
                       required
                     />
                   </label>
@@ -2019,6 +2198,20 @@ export default function Home() {
                 weather={studioInspiration?.weather || weather}
                 initialOptions={planOptions}
                 initialInterests={studioInspiration?.interests}
+                onAdopt={adoptProposal}
+                onClose={close}
+              />
+            )}
+            {modal === "intent" && (
+              <IntentPlanner
+                city={intentFromPlan ? planned[0]?.city || city : city}
+                people={people}
+                weather={
+                  (intentFromPlan ? planOptions.weather : weather) as Weather
+                }
+                options={planOptions}
+                initialText={intentSeed}
+                initialActivities={intentFromPlan ? planned : []}
                 onAdopt={adoptProposal}
                 onClose={close}
               />

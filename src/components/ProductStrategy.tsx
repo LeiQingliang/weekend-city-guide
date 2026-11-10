@@ -153,6 +153,14 @@ export default function ProductStrategy({
           <h3>AI 的价值，要落到任务结果</h3>
           <div className="strategy-ai">
             <p>
+              <b>先说目标，再共同修改：</b>
+              输入“周六三个人，100元，想看展”，先核对结构化条件和两份方案。接着说“只去室内、缩短到3小时”，保留其他条件，展示修改前后差异，支持撤销。
+            </p>
+            <p>
+              <b>不懂的条件，也要留在任务里：</b>
+              “轮椅友好”“不能排队”等未覆盖要求会持续显示，需用户确认另行核对后才能采用。关闭草稿不改原计划；采用后用出发速览继续执行。
+            </p>
+            <p>
               <b>适合交给 AI：</b>
               理解含糊需求、解释方案取舍、把打卡整理成攻略草稿。
             </p>
@@ -162,7 +170,16 @@ export default function ProductStrategy({
             </p>
             <p>
               <b>当前实现：</b>AI Coding
-              辅助研发；运行时推荐与解析采用本地规则，未调用大模型。保留规则基线后，才有条件判断模型是否带来增益。
+              辅助研发；公开站默认以本地规则运行，界面明确标注模式。模型接入通过独立后端理解条件，活动、费用和时间仍需校验；在线失败时显示降级原因，保留可用的规则基线。
+            </p>
+            <p>
+              <a
+                href="https://github.com/LeiQingliang/weekend-city-guide/blob/main/docs/AI-EXPERIENCE.md"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                查看 AI 优先设计、模式边界与评测思路 <ArrowUpRight size={13} />
+              </a>
             </p>
           </div>
           <div className="strategy-experiment">

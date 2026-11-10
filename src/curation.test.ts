@@ -80,6 +80,63 @@ test("available time includes transfers and excludes evening waits that cannot f
   }
 });
 
+test("adopting a proposal retains its duration limit so adding a stop can warn after serialization", () => {
+  const input = brief({ startTime: "11:00", maxDurationMinutes: 180, budget: 200 });
+  const proposal = recommendWeekendProposals(input)[0];
+  assert.deepEqual(proposal.activityIds, ["sh-gallery"]);
+  assert.equal(proposal.options.maxDurationMinutes, 180);
+  const restoredOptions = JSON.parse(JSON.stringify(proposal.options));
+  const selected = [...proposal.activityIds, "sh-nature"].map(id => activities.find(item => item.id === id)!);
+  const result = buildItinerary(selected, restoredOptions);
+  assert.equal(result.totalMinutes, 295);
+  assert.equal(result.overTime, true);
+  assert.ok(result.warnings.some(warning => warning.includes("超过你设置的 180 分钟")));
+});
+
+test("new briefs preserve supported duration limits and fall back for old or invalid options", () => {
+  for (const maxDurationMinutes of [60, 180, 720])
+    assert.equal(defaultWeekendBrief("上海", { ...defaultPlanOptions, maxDurationMinutes }).maxDurationMinutes, maxDurationMinutes);
+  for (const maxDurationMinutes of [undefined, 0, 59, 721, Infinity, NaN, 150.5])
+    assert.equal(defaultWeekendBrief("上海", { ...defaultPlanOptions, maxDurationMinutes }).maxDurationMinutes, 300);
+});
+
+test("one-day recommendations allow 22:00 exactly but reject later and overnight endings", () => {
+  const input = brief({ startTime: "20:00", interests: ["户外"], maxDurationMinutes: 180, budget: 200 });
+  const exact = recommendWeekendProposals(input);
+  assert.ok(exact.some(proposal => proposal.activityIds.includes("sh-nature")));
+  for (const proposal of exact) {
+    const result = buildItinerary(proposal.activityIds.map(id => activities.find(item => item.id === id)!), proposal.options);
+    assert.equal(result.stops.at(-1)!.end, "2026-11-14T22:00");
+  }
+  for (const startTime of ["20:01", "23:30"]) {
+    assert.deepEqual(recommendWeekendProposals({ ...input, startTime }), []);
+    assert.ok(explainWeekendConstraints({ ...input, startTime }).some(reason => reason.includes("22:00") && reason.includes("不是对场所营业时间的判断")));
+  }
+});
+
+test("indoor-only and excluded interests are hard constraints even when a preferred category conflicts", () => {
+  const indoor = recommendWeekendProposals(brief({ weather: "晴天", indoorOnly: true, interests: ["户外", "市集"], excludedInterests: ["演出"], budget: 200 }));
+  assert.ok(indoor.length > 0);
+  assert.ok(indoor.every(proposal => proposal.activityIds.every(id => {
+    const item = activities.find(candidate => candidate.id === id)!;
+    return item.indoor && item.category !== "演出";
+  })));
+  assert.ok(indoor.every(proposal => proposal.reasons.some(reason => reason.includes("只安排室内"))));
+  const excluded = recommendWeekendProposals(brief({ interests: ["展览"], excludedInterests: ["展览", "市集", "演出"] }));
+  assert.ok(excluded.length > 0);
+  assert.ok(excluded.every(proposal => proposal.activityIds.every(id => activities.find(item => item.id === id)!.category === "户外")));
+  assert.ok(excluded.every(proposal => proposal.tradeoffs.some(reason => reason.includes("不安排展览、市集、演出"))));
+});
+
+test("excluding all categories returns an honest preference empty state without mutating the draft", () => {
+  const input = brief({ excludedInterests: ["展览", "市集", "演出", "户外"] });
+  const before = JSON.stringify(input);
+  assert.deepEqual(recommendWeekendProposals(input), []);
+  assert.ok(explainWeekendConstraints(input).some(reason => reason.includes("排除类型")));
+  assert.ok(!explainWeekendConstraints(input).some(reason => reason.includes("闭馆")));
+  assert.equal(JSON.stringify(input), before);
+});
+
 test("evening preferences can include a performance when its wait and cost fit", () => {
   const proposals = recommendWeekendProposals(
     brief({
