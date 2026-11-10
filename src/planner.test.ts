@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  activityCostFor,
   buildItinerary,
   createCalendar,
   createRainAlternative,
@@ -8,6 +9,7 @@ import {
   type PlanOptions,
 } from "./planner";
 import type { Activity } from "./data";
+import { activityEvidence } from "./evidence";
 
 const options: PlanOptions = {
   date: "2026-11-14",
@@ -37,7 +39,43 @@ const activity = (overrides: Partial<Activity> = {}): Activity => ({
   route: [],
   capacity: 4,
   joined: 1,
+  evidence: { ...activityEvidence["sh-gallery"], opening: { status: "check-official", summary: "测试项目未指定开放时段" } },
   ...overrides,
+});
+
+test("user activity allowances update the whole outing, budget warning and calendar", () => {
+  const chosen = activity();
+  const adjusted = { ...options, budget: 100, people: 3, activityCosts: { [chosen.id]: 80.25, "not-in-plan": 9999 } };
+  const result = buildItinerary([chosen], adjusted);
+  assert.equal(result.activityCost, 80.25);
+  assert.equal(result.totalPerPerson, 125.25);
+  assert.equal(result.groupTotal, 375.75);
+  assert.equal(result.overBudget, true);
+  assert.ok(result.warnings.some(warning => warning.includes("25.25")));
+  const calendar = createCalendar([chosen], adjusted).replace(/\r\n /g, "");
+  assert.ok(calendar.includes("活动规划 ¥80.25 / 人；全天含餐饮交通规划 ¥125.25 / 人"));
+  assert.equal(activityCostFor(chosen, { ...options, activityCosts: { [chosen.id]: 0 } }), 0);
+  assert.equal(chosen.price, 30, "editing an outing must not mutate the catalog");
+});
+
+test("invalid overrides fall back, boundary amounts are accepted, and absent stops add no cost", () => {
+  const chosen = activity();
+  for (const invalid of [-1, 10_000.01, Infinity, NaN, "20", null]) {
+    const adjusted = { ...options, activityCosts: { [chosen.id]: invalid } } as PlanOptions;
+    assert.equal(activityCostFor(chosen, adjusted), 30);
+  }
+  assert.equal(activityCostFor(chosen, { ...options, activityCosts: { [chosen.id]: 10_000 } }), 10_000);
+  assert.equal(activityCostFor(chosen, { ...options, activityCosts: Object.create({ [chosen.id]: 7 }) }), 30);
+  assert.equal(buildItinerary([], { ...options, activityCosts: { [chosen.id]: 100 } }).totalPerPerson, 0);
+});
+
+test("rain replacement keeps selected stop allowances and ignores stale allowances for new stops", () => {
+  const gallery = activity({ id: "gallery", duration: "1 小时" });
+  const walk = activity({ id: "walk", category: "户外", indoor: false, price: 0, duration: "3 小时" });
+  const replacement = activity({ id: "new-gallery", duration: "1 小时", price: 20 });
+  const adjusted = { ...options, budget: 125, activityCosts: { gallery: 60, "new-gallery": 999 } };
+  assert.deepEqual(createRainAlternative([gallery, walk], adjusted, [gallery, replacement])?.map(item => item.id), ["gallery", "new-gallery"]);
+  assert.deepEqual(createRainAlternative([gallery, walk], { ...adjusted, budget: 124 }, [gallery, replacement])?.map(item => item.id), ["gallery"]);
 });
 
 test("rain alternative preserves indoor choices without adding an over-budget replacement", () => {
@@ -191,12 +229,57 @@ test("performances start no earlier than 19:00 and waiting is counted honestly",
   assert.equal(result.stops[0].start, "2026-11-14T19:00");
   assert.equal(result.stops[0].end, "2026-11-14T21:00");
   assert.equal(result.totalMinutes, 660);
+  assert.equal(result.stops[0].waitingMinutes, 540);
+  assert.equal(result.stops[0].waitingReason, "performance");
   assert.ok(result.warnings.some((warning) => warning.includes("真实场次")));
   const late = buildItinerary(
     [activity({ category: "演出", duration: "2 小时" })],
     { ...options, startTime: "20:30" },
   );
   assert.equal(late.stops[0].start, "2026-11-14T20:30");
+});
+
+test("published museum opening delays entry and includes the wait in elapsed time and calendar", () => {
+  const museum = activity({ evidence: activityEvidence["sh-gallery"] });
+  const result = buildItinerary([museum], options);
+  assert.equal(result.stops[0].start, "2026-11-14T11:00");
+  assert.equal(result.stops[0].end, "2026-11-14T13:30");
+  assert.equal(result.stops[0].waitingMinutes, 60);
+  assert.equal(result.stops[0].waitingReason, "opening");
+  assert.equal(result.totalMinutes, 210);
+  assert.deepEqual(result.openingConflicts, []);
+  assert.match(createCalendar([museum], options), /DTSTART;TZID=Asia\/Shanghai:20261114T110000/);
+});
+
+test("closed days and closing boundaries are explicit conflicts without removing the chosen stop", () => {
+  const museum = activity({ evidence: activityEvidence["sh-gallery"] });
+  const monday = buildItinerary([museum], { ...options, date: "2026-11-16" });
+  assert.equal(monday.stops.length, 1);
+  assert.equal(monday.openingConflicts.length, 1);
+  assert.ok(monday.warnings.some(warning => warning.includes("常规闭馆日")));
+  assert.deepEqual(buildItinerary([museum], { ...options, startTime: "15:30" }).openingConflicts, []);
+  assert.equal(buildItinerary([museum], { ...options, startTime: "15:31" }).openingConflicts.length, 1);
+  const shortVisit = activity({ duration: "30 分钟", evidence: activityEvidence["hz-gallery"] });
+  assert.equal(buildItinerary([shortVisit], { ...options, startTime: "16:30" }).openingConflicts.length, 1);
+});
+
+test("opening wait follows the actual transfer arrival rather than the initial departure time", () => {
+  const result = buildItinerary([
+    activity({ id: "morning", duration: "1 小时" }),
+    activity({ id: "museum", evidence: activityEvidence["sh-gallery"] }),
+  ], { ...options, startTime: "08:00" });
+  assert.equal(result.stops[1].transferMinutes, 25);
+  assert.equal(result.stops[1].waitingMinutes, 95);
+  assert.equal(result.stops[1].start, "2026-11-14T11:00");
+  assert.equal(result.totalMinutes, 330);
+});
+
+test("rain alternatives reject closed museums and opening waits that exceed the original outing", () => {
+  const walk = activity({ id: "walk", indoor: false, category: "户外", price: 0, duration: "2 小时" });
+  const museum = activity({ evidence: activityEvidence["sh-gallery"] });
+  assert.equal(createRainAlternative([walk], options, [museum]), null);
+  assert.equal(createRainAlternative([{ ...walk, duration: "4 小时" }], { ...options, date: "2026-11-16" }, [museum]), null);
+  assert.equal(createRainAlternative([museum, walk], { ...options, date: "2026-11-16" }, [museum]), null);
 });
 
 test("calendar dates roll over midnight and year boundaries", () => {

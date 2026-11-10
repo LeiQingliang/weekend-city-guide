@@ -195,3 +195,26 @@ test("explicit interests outrank companion preferences and the budget remains pe
     );
   }
 });
+
+test("rainy Monday does not recommend a normally closed museum or invent an outdoor fallback", () => {
+  const input = brief({ date: "2026-11-16", weather: "下雨", budget: 200, startTime: "10:00" });
+  assert.deepEqual(recommendWeekendProposals(input), []);
+  assert.ok(explainWeekendConstraints(input).some(reason => reason.includes("闭馆")));
+});
+
+test("published opening waits count against available time and equality still fits", () => {
+  const input = brief({ weather: "下雨", startTime: "09:00", maxDurationMinutes: 269 });
+  assert.deepEqual(recommendWeekendProposals(input), []);
+  const fitting = recommendWeekendProposals({ ...input, maxDurationMinutes: 270 });
+  assert.equal(fitting.length, 1);
+  assert.deepEqual(fitting[0].activityIds, ["sh-gallery"]);
+  assert.equal(fitting[0].durationMinutes, 270);
+});
+
+test("late museum visits are rejected and Beijing's real outdoor market is never a rain fallback", () => {
+  assert.deepEqual(recommendWeekendProposals(brief({ weather: "下雨", startTime: "16:00", budget: 100 })), []);
+  const beijing = recommendWeekendProposals(brief({ city: "北京", weather: "下雨", interests: ["市集"], budget: 200 }));
+  assert.ok(beijing.length > 0);
+  assert.ok(beijing.every(proposal => !proposal.activityIds.includes("bj-market")));
+  assert.ok(beijing.every(proposal => proposal.activityIds.every(id => activities.find(item => item.id === id)!.indoor)));
+});

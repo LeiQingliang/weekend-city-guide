@@ -40,6 +40,7 @@ export interface WeekendStudioProps {
   people: number;
   weather: Weather;
   initialOptions: PlanOptions;
+  initialInterests?: WeekendInterest[];
   onAdopt: (proposal: WeekendProposal) => void;
   onClose: () => void;
 }
@@ -66,11 +67,12 @@ export default function WeekendStudio({
   people,
   weather,
   initialOptions,
+  initialInterests,
   onAdopt,
   onClose,
 }: WeekendStudioProps) {
   const [brief, setBrief] = useState<WeekendBrief>(() =>
-    defaultWeekendBrief(city, initialOptions, people, weather),
+    ({ ...defaultWeekendBrief(city, initialOptions, people, weather), ...(initialInterests ? { interests: initialInterests } : {}) }),
   );
   const [step, setStep] = useState(1);
   const [resultMode, setResultMode] = useState(false);
@@ -657,7 +659,7 @@ export default function WeekendStudio({
           )}
           <p className="studio-result-note">
             <Sparkles size={15} />
-            推荐按你选择的条件组合示例活动，费用与时间为估算。选定后进入可编辑行程，现有计划会在确认后更新。
+            推荐组合有来源的真实地点，并检查已知常规开放时段。费用按预留计算，场次与实际票价需向官方确认；采用前不会改变现有计划。
           </p>
           <button
             className="studio-result-back"

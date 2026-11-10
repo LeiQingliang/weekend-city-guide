@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import type { Activity } from "../data";
-import { buildItinerary, createCalendar, type PlanOptions } from "../planner";
+import { activityCostFor, buildItinerary, createCalendar, type PlanOptions } from "../planner";
 import "./itinerary.css";
 
 export interface ItineraryProps {
@@ -125,14 +125,14 @@ export default function Itinerary({
       ...stops.flatMap((stop, index) => [
         `${index + 1}. ${displayTime(stop.start, options.date)}–${displayTime(stop.end, options.date)} ${stop.activity.title}`,
         `地点：${stop.activity.location}`,
-        `活动参考：${yuan(stop.activity.price)}/人；停留约 ${hours(stop.minutes)}${stop.transferMinutes ? `；此前转场估算 ${stop.transferMinutes} 分钟` : ""}`,
+        `活动规划：${yuan(activityCostFor(stop.activity, options))}/人；停留约 ${hours(stop.minutes)}${stop.transferMinutes ? `；此前转场估算 ${stop.transferMinutes} 分钟` : ""}`,
         `交通建议：${stop.activity.transport}`,
         "",
       ]),
       `全天人均参考：${yuan(totalPerPerson)}（活动 ${yuan(activityCost)} + 餐饮 ${yuan(options.mealBudget)} + 交通 ${yuan(options.transportBudget)}）`,
       `${options.people} 人参考合计：${yuan(groupTotal)}　人均全天预算：${yuan(options.budget)}`,
       "",
-      "活动与费用为示例；时间、转场均为估算，未接入实时地图，不代表预约或已确认场次。餐饮有费用预留，尚未自动安排用餐时间。出发前请核实开放、票务、交通和天气。",
+      "地点有公开信息来源；费用按规划预留计算，转场与时间为估算，不代表真实导航、预约或已确认场次。餐饮有费用预留，用餐时间自行安排。出发前请核实开放、票务、交通和天气。",
       ...warnings,
     ].join("\n");
     download(
@@ -415,7 +415,7 @@ export default function Itinerary({
                             {wait > 0 && (
                               <span>
                                 <Coffee size={12} />
-                                演出前留白约 {hours(wait)}
+                                {stop.activity.category === "演出" ? "演出前留白" : "等候开放"}约 {hours(wait)}
                               </span>
                             )}
                           </div>
@@ -463,12 +463,11 @@ export default function Itinerary({
                               {stop.activity.location}
                             </p>
                             <div className="itinerary-stop-bottom">
-                              <strong>
-                                {stop.activity.price
-                                  ? yuan(stop.activity.price)
-                                  : "免费"}
-                                <small> / 人·参考</small>
-                              </strong>
+                              <label className="stop-cost-editor">
+                                <span>活动预留 / 人 · 可改</span>
+                                <span>¥<input type="number" min="0" max="10000" step="1" value={activityCostFor(stop.activity, options)} aria-label={`${stop.activity.evidence.venueName}活动预留`} onChange={e => update("activityCosts", { ...options.activityCosts, [stop.activity.id]: Math.min(10000,Math.max(0,Number(e.target.value)||0)) })}/>
+                                {options.activityCosts?.[stop.activity.id] !== undefined && <button aria-label={`重置${stop.activity.evidence.venueName}活动预留`} onClick={() => { const next = { ...options.activityCosts }; delete next[stop.activity.id]; update("activityCosts",next); }} type="button">重置</button>}</span>
+                              </label>
                               <div>
                                 <button
                                   onClick={() => onTeam(stop.activity)}
@@ -689,7 +688,7 @@ export default function Itinerary({
               <strong>{yuan(groupTotal)}</strong>
             </div>
             <p className="itinerary-budget-note">
-              活动价格为示例，餐饮与交通由你预留。此处为全天总预算，区别于发现页的单项活动预算。
+              活动金额是规划预留，实际票价请向官方确认；餐饮与交通可调整。这里是全天预算，区别于发现页的单项活动预算。
             </p>
           </section>
           {warnings.length > 0 && (

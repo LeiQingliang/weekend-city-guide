@@ -31,6 +31,7 @@ export interface WeatherPanelProps {
   onModeChange?: (mode: "live" | "scenario") => void;
   onWeatherChange: (weather: Weather) => void;
   onDateChange: (date: string) => void;
+  onSummaryChange?: (summary: string) => void;
 }
 type LoadState = {
   key: string;
@@ -60,6 +61,7 @@ export function WeatherPanel({
   onModeChange,
   onWeatherChange,
   onDateChange,
+  onSummaryChange,
 }: WeatherPanelProps) {
   const [requestedMode, setMode] = useState<"live" | "scenario">("live");
   const [acceptedScenarioRequest, setAcceptedScenarioRequest] = useState(0);
@@ -159,6 +161,14 @@ export function WeatherPanel({
     mode === "scenario" ||
     current.status === "error" ||
     current.status === "out-of-range";
+  const summary = forecast
+    ? `${forecast.description} ${Math.round(forecast.temperatureMin)}–${Math.round(forecast.temperatureMax)}°C`
+    : mode === "scenario"
+      ? `${scenario}情景 · 非实际预报`
+      : current.status === "loading"
+        ? "正在获取预报"
+        : `预报暂不可用 · 按${scenario}规划`;
+  useEffect(() => { onSummaryChange?.(summary); }, [summary, onSummaryChange]);
   return (
     <section className="forecast-panel" aria-label="出行日期与天气">
       <div className="forecast-topline">

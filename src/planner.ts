@@ -8,9 +8,17 @@ export function createRainAlternative(
 ): Activity[] | null {
   if (!items.length) return null;
   const city = items[0].city;
+  // Overrides belong to the chosen outing; a newly suggested stop starts at its catalog allowance.
+  const alternativeOptions = {
+    ...options,
+    activityCosts: Object.fromEntries(items.map(item => [item.id, activityCostFor(item, options)])),
+  };
   const next = items.filter((item) => item.city === city && item.indoor);
   const limit = buildItinerary(items, options).totalMinutes;
-  if (next.length && buildItinerary(next, options).overBudget) return null;
+  if (next.length) {
+    const preserved = buildItinerary(next, alternativeOptions);
+    if (preserved.overBudget || preserved.openingConflicts.length) return null;
+  }
   for (const item of items.filter((item) => !item.indoor)) {
     const replacement = catalog
       .filter(
@@ -21,8 +29,8 @@ export function createRainAlternative(
       )
       .sort((a, b) => a.price - b.price)
       .find((candidate) => {
-        const result = buildItinerary([...next, candidate], options);
-        return !result.overBudget && result.totalMinutes <= limit;
+        const result = buildItinerary([...next, candidate], alternativeOptions);
+        return !result.overBudget && !result.openingConflicts.length && result.totalMinutes <= limit;
       });
     if (replacement) next.push(replacement);
   }
@@ -38,6 +46,8 @@ export interface PlanOptions {
   mealBudget: number;
   transportBudget: number;
   weather: string;
+  /** Optional user-adjusted per-person allowances by activity ID; never proof of payment or a live quote. */
+  activityCosts?: Record<string, number>;
 }
 
 export interface ItineraryStop {
@@ -48,6 +58,9 @@ export interface ItineraryStop {
   minutes: number;
   /** Estimated transfer before this stop; zero for the first stop. */
   transferMinutes: number;
+  /** Waiting before entry, included in the total elapsed time. */
+  waitingMinutes: number;
+  waitingReason?: "opening" | "performance";
 }
 
 export interface ItineraryResult {
@@ -59,6 +72,8 @@ export interface ItineraryResult {
   totalMinutes: number;
   overBudget: boolean;
   warnings: string[];
+  /** Conflicts with published regular opening rules, not a live operating status. */
+  openingConflicts: string[];
 }
 
 const MINUTE = 60_000;
@@ -93,6 +108,17 @@ export const defaultPlanOptions: PlanOptions = {
 
 const money = (value: number) =>
   Number.isFinite(value) ? Math.round(Math.max(0, value) * 100) / 100 : 0;
+
+/** Only an own, finite amount within the editing range overrides the catalog allowance. */
+export function activityCostFor(activity: Activity, options: PlanOptions): number {
+  const overrides = options.activityCosts;
+  const value = overrides && Object.prototype.hasOwnProperty.call(overrides, activity.id)
+    ? overrides[activity.id]
+    : undefined;
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10_000
+    ? money(value)
+    : money(activity.price);
+}
 const validDate = (date: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(date) &&
   Number.isFinite(Date.parse(`${date}T00:00:00Z`)) &&
@@ -120,6 +146,25 @@ function durationMinutes(duration: string): number {
   return parsed > 0 ? Math.round(parsed) : 120;
 }
 
+function adjustForOpening(activity: Activity, arrival: number, minutes: number): { start: number; conflict?: string } {
+  const opening = activity.evidence?.opening;
+  if (!opening) return { start: arrival };
+  const name = activity.evidence.venueName;
+  const weekday = new Date(arrival).getUTCDay();
+  if (opening.closedWeekdays?.includes(weekday))
+    return { start: arrival, conflict: `${name}在所选日期为常规闭馆日，请换日期或核实节假日特别开放公告。` };
+  const windows = opening.weeklyHours?.filter(window => window.days.includes(weekday));
+  if (!windows?.length) return { start: arrival };
+  const dayStart = Math.floor(arrival / DAY) * DAY;
+  const timeAt = (time: string) => dayStart + (Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))) * MINUTE;
+  const fitting = windows
+    .map(window => ({ start: Math.max(arrival, timeAt(window.open)), end: timeAt(window.close), lastEntry: timeAt(window.lastEntry || window.close) }))
+    .filter(window => window.start < window.lastEntry && window.start + minutes * MINUTE <= window.end)
+    .sort((a, b) => a.start - b.start)[0];
+  if (fitting) return { start: fitting.start };
+  return { start: arrival, conflict: `${name}的预计到访或游玩时长不符合常规入场、闭馆时间，请提前出发、缩短停留或更换目的地。` };
+}
+
 export function buildItinerary(
   items: Activity[],
   options: PlanOptions,
@@ -131,28 +176,38 @@ export function buildItinerary(
   const start = Date.parse(`${date}T${startTime}:00Z`);
   let cursor = start;
   const warnings: string[] = [];
+  const openingConflicts: string[] = [];
   if (date !== options.date || startTime !== options.startTime)
     warnings.push("日期或时间格式不完整，暂按默认出发时间估算。");
   const stops = items.map((activity, index) => {
     const transferMinutes = index ? 25 : 0;
     cursor += transferMinutes * MINUTE;
+    const arrival = cursor;
+    let waitingReason: ItineraryStop["waitingReason"];
     if (activity.category === "演出") {
       const dayStart = Math.floor(cursor / DAY) * DAY;
       cursor = Math.max(cursor, dayStart + 19 * 60 * MINUTE);
+      if (cursor > arrival) waitingReason = "performance";
     }
     const minutes = durationMinutes(activity.duration);
+    const opening = adjustForOpening(activity, cursor, minutes);
+    if (opening.start > cursor) waitingReason = "opening";
+    cursor = opening.start;
+    if (opening.conflict) openingConflicts.push(opening.conflict);
     const stop = {
       activity,
       start: localStamp(cursor),
       end: localStamp(cursor + minutes * MINUTE),
       minutes,
       transferMinutes,
+      waitingMinutes: Math.round((cursor - arrival) / MINUTE),
+      waitingReason,
     };
     cursor += minutes * MINUTE;
     return stop;
   });
   const activityCost = money(
-    items.reduce((sum, item) => sum + money(item.price), 0),
+    items.reduce((sum, item) => sum + activityCostFor(item, options), 0),
   );
   const totalPerPerson = items.length
     ? money(
@@ -169,7 +224,7 @@ export function buildItinerary(
   const totalMinutes = items.length ? Math.round((cursor - start) / MINUTE) : 0;
   if (overBudget)
     warnings.push(
-      `预计每人超出全天预算 ¥${money(totalPerPerson - money(options.budget))}，可减少活动或调整餐饮、交通预留。`,
+      `预计每人超出全天预算 ¥${money(totalPerPerson - money(options.budget))}，可减少活动，或核对并调整各项规划金额。`,
     );
   if (options.weather === "下雨" && items.some((item) => !item.indoor))
     warnings.push(
@@ -192,6 +247,13 @@ export function buildItinerary(
     );
   if (items.some((item) => item.category === "演出"))
     warnings.push("演出暂按不早于 19:00 安排，仅作规划占位，请核实真实场次。");
+  if (items.some((item) => item.price > 0 && item.evidence?.pricing.kind === "planning-estimate"))
+    warnings.push("费用含未核验票价的规划预留，实际总额需按所选展览或演出价格调整。");
+  if (items.some((item) => item.evidence?.kind === "route-inspiration"))
+    warnings.push("街区探索是路线灵感，尚未确认市集场次或具体商户营业情况。");
+  warnings.push(...openingConflicts);
+  if (items.some((item) => item.evidence?.opening.weeklyHours?.length))
+    warnings.push("开放时段按馆方常规安排估算；节假日、临时闭馆与预约要求仍需出发前核实。");
   return {
     stops,
     activityCost,
@@ -200,6 +262,7 @@ export function buildItinerary(
     totalMinutes,
     overBudget,
     warnings,
+    openingConflicts,
   };
 }
 
@@ -264,9 +327,9 @@ export function createCalendar(
     const description = [
       "个人周末计划 · 时间为估算，非预约或已确认场次。",
       stop.activity.subtitle,
-      `活动参考 ¥${money(stop.activity.price)} / 人；全天含餐饮交通参考 ¥${itinerary.totalPerPerson} / 人。`,
+      `活动规划 ¥${activityCostFor(stop.activity, options)} / 人；全天含餐饮交通规划 ¥${itinerary.totalPerPerson} / 人。`,
       `交通建议：${stop.activity.transport}`,
-      "相邻活动转场按 25 分钟估算，未接入实时地图；出发前核实开放时间、预约、天气与交通。",
+      "金额为自行规划，不代表支付或票价确认。相邻活动转场按 25 分钟估算，未计算实际导航路线；出发前核实开放时间、预约、天气与交通。",
     ].join("\n");
     lines.push(
       "BEGIN:VEVENT",

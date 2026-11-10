@@ -1,14 +1,19 @@
 import { asset, siteUrl } from "./paths";
 import Itinerary from "./components/Itinerary";
+import Explorer from "./components/Explorer";
+import ActivityDetails from "./components/ActivityDetails";
+import ShareQr from "./components/ShareQr";
+import { TeamRelay, TeamReplyPreview } from "./components/TeamRelay";
+import { parseTeamReply, reviewTeamReply, type TeamReply } from "./teamRelay";
+import type { StoredTeam } from "./storage";
 import WeatherPanel from "./components/WeatherPanel";
 import { BriefComposer } from "./components/Experience";
 import {
-  DiscoveryEdition,
   ProposalPreview,
 } from "./components/DiscoveryEdition";
 import WeekendStudio from "./components/WeekendStudio";
 import ProductGuide, { DemoJourneyBar } from "./components/ReviewerGuide";
-import type { WeekendProposal } from "./curation";
+import type { WeekendProposal, WeekendInterest } from "./curation";
 import {
   buildItinerary,
   createRainAlternative,
@@ -64,18 +69,7 @@ import {
 } from "./data";
 
 type View = "discover" | "itinerary" | "teams" | "journal" | "guides";
-type Team = {
-  id: string;
-  activityId: string;
-  title: string;
-  date: string;
-  capacity: number;
-  members: number;
-  joined: boolean;
-  host: boolean;
-  meeting: string;
-  note: string;
-};
+type Team = StoredTeam;
 type Entry = {
   id: string;
   activityId: string;
@@ -138,7 +132,7 @@ const guideSeeds: Guide[] = [
   {
     id: "g3",
     title: "第一次和新搭子出门，怎么不尴尬？",
-    text: "选一个有共同兴趣的活动，比单纯约见面更轻松。\n\n① 先说清时间、集合地点和人均预算。\n② 初次见面选择白天、公共场所和方便到达的位置。\n③ 不强制拍照，不随意分享他人的个人信息。\n④ 费用各自支付，临时退出提前说明。\n⑤ 留下共同完成的小目标：找到一家喜欢的店，或拍到一张满意的照片。\n\n本雏形的组队为本机模拟，邀请卡可分享，但不会同步其他人的报名状态。",
+    text: "选一个有共同兴趣的活动，比单纯约见面更轻松。\n\n① 先说清时间、集合地点和人均预算。\n② 初次见面选择白天、公共场所和方便到达的位置。\n③ 不强制拍照，不随意分享他人的个人信息。\n④ 费用各自支付，临时退出提前说明。\n⑤ 留下共同完成的小目标：找到一家喜欢的店，或拍到一张满意的照片。\n\n把邀请发给朋友，请对方生成参加回执发回。发起人确认导入后，名单才会更新；变更计划请另行通知。",
     city: "出发小贴士",
     image: asset("market.jpg"),
     author: "周末编辑部",
@@ -209,6 +203,9 @@ function cleanOptions(input: unknown): PlanOptions {
     people: Math.round(num(x.people, 2, 1, 12)),
     mealBudget: num(x.mealBudget, 30),
     transportBudget: num(x.transportBudget, 15),
+    activityCosts: x.activityCosts && typeof x.activityCosts === "object" && !Array.isArray(x.activityCosts)
+      ? Object.fromEntries(Object.entries(x.activityCosts).filter(([id, value]) => activities.some(a => a.id === id) && typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10000))
+      : {},
     weather: ["晴天", "多云", "下雨"].includes(String(x.weather))
       ? String(x.weather)
       : "多云",
@@ -268,6 +265,9 @@ export default function Home() {
   const [proposalPreview, setProposalPreview] =
     useState<WeekendProposal | null>(null);
   const [demo, setDemo] = useState(false);
+  const [weatherSummary, setWeatherSummary] = useState("");
+  const [teamReply, setTeamReply] = useState<TeamReply | null>(null);
+  const [studioInspiration, setStudioInspiration] = useState<{ city?: City; weather?: Weather; interests?: WeekendInterest[] } | null>(null);
   const [demoStep, setDemoStep] = useState(0);
   const demoSnapshot = useRef<
     (Persisted & { view: View; query: string; onlySaved: boolean }) | null
@@ -343,6 +343,11 @@ export default function Home() {
       } catch {
         notice("这份行程链接无法读取，请让朋友重新分享");
       }
+    }
+    if (params.has("reply")) {
+      const parsed = parseTeamReply(params.get("reply")!);
+      if (parsed.ok) { setTeamReply(parsed.reply); setView("teams"); }
+      else notice(parsed.error);
     }
     if (params.has("invite")) {
       try {
@@ -444,7 +449,7 @@ export default function Home() {
   }, [people, ready]);
   useEffect(() => {
     const incoming = () => {
-      if (/(?:invite|guide|plan)=/.test(location.hash)) location.reload();
+      if (/(?:invite|guide|plan|reply)=/.test(location.hash)) location.reload();
     };
     window.addEventListener("hashchange", incoming);
     return () => window.removeEventListener("hashchange", incoming);
@@ -456,6 +461,7 @@ export default function Home() {
     teamDetail ||
     shareCard ||
     sharedPlan ||
+    teamReply ||
     proposalPreview ||
     confirmation
   );
@@ -468,11 +474,12 @@ export default function Home() {
     setFormError("");
     setPhoto("");
     setSharedPlan(null);
+    setTeamReply(null);
     setConfirmation(null);
     setEditingGuide(null);
     setGuideDraft(null);
     setProposalPreview(null);
-    if (/(?:invite|guide|plan)=/.test(location.hash))
+    if (/(?:invite|guide|plan|reply)=/.test(location.hash))
       history.replaceState(null, "", siteUrl());
   };
   useEffect(() => {
@@ -702,17 +709,21 @@ export default function Home() {
     let spent = 0;
     const picked: Activity[] = [];
     for (const a of available) {
+      const estimate = buildItinerary([...picked, a], { ...planOptions, weather, people });
       if (
         a.category !== "演出" &&
         picked.length < 2 &&
-        spent + a.price <= allowance
+        spent + a.price <= allowance &&
+        !estimate.overBudget &&
+        estimate.openingConflicts.length === 0 &&
+        estimate.totalMinutes <= 300
       ) {
         picked.push(a);
         spent += a.price;
       }
     }
     if (!picked.length) {
-      notice("当前预算或条件比较紧，试试降低餐饮预留或放宽活动筛选");
+      notice("当前预算、开放时间或半日时长没有合适组合，试试定制并调整条件");
       return;
     }
     const action = () => {
@@ -757,12 +768,14 @@ export default function Home() {
       notice("当前预算或时长没有合适的室内方案，可在定制中调整条件");
       return;
     }
-    const summary = buildItinerary(alternative, planOptions);
+    const nextOptions = { ...planOptions, activityCosts: Object.fromEntries(Object.entries(planOptions.activityCosts || {}).filter(([id]) => plan.includes(id) && alternative.some(a => a.id === id))) };
+    const summary = buildItinerary(alternative, nextOptions);
     setConfirmation({
       title: "换成这份雨天备用计划？",
       text: `改为${alternative.map((a) => a.title).join("、")}。含餐饮交通参考 ¥${summary.totalPerPerson}/人，约 ${(summary.totalMinutes / 60).toFixed(1)} 小时。保留已有室内活动；没有合适替代的户外站点会减少，不强行增加消费。`,
       action: () => {
         setPlan(alternative.map((a) => a.id));
+        setPlanOptions(nextOptions);
         notice("已更新雨天计划，预算和时间都重新算好了");
       },
     });
@@ -797,7 +810,7 @@ export default function Home() {
     close();
     setShareCard({
       title: "把周末邀请发给朋友",
-      text: `${t.title}\n${formatDate(t.date)} · ${t.meeting}\n邀请上限 ${t.capacity} 人 · 费用自理\n组队演示：报名状态仅保存在各自设备。`,
+      text: `${t.title}\n${formatDate(t.date)} · ${t.meeting}\n邀请上限 ${t.capacity} 人 · 费用自理\n朋友确认后可生成回执发回，发起人导入后更新名单。`,
       url: url.toString(),
     });
   };
@@ -815,20 +828,6 @@ export default function Home() {
       text: g.title,
       url: url.toString(),
     });
-  };
-  const joinTeam = (t: Team) => {
-    if (t.members >= t.capacity && !t.joined) {
-      notice("这个小队已经满员，试试自己发起一个吧");
-      return;
-    }
-    const updated = {
-      ...t,
-      joined: !t.joined,
-      members: t.members + (t.joined ? -1 : 1),
-    };
-    setTeams((prev) => prev.map((x) => (x.id === t.id ? updated : x)));
-    setTeamDetail(updated);
-    notice(t.joined ? "已退出该示例小队" : "已加入示例小队，记得查看集合信息");
   };
   const submitTeam = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -913,6 +912,7 @@ export default function Home() {
   };
   const openStudio = () => {
     close();
+    setStudioInspiration(null);
     setModal("studio");
   };
   const adoptProposal = (proposal: WeekendProposal) => {
@@ -1185,438 +1185,22 @@ export default function Home() {
             e.target.value = "";
           }}
         />
-        {view === "discover" && (
-          <>
-            <DiscoveryEdition
-              city={city}
-              people={people}
-              weather={weather}
-              options={planOptions}
-              onCustomize={openStudio}
-              onTour={startDemo}
-              onPreview={setProposalPreview}
-            />
-            <details className="explore-tools" id="preferences">
-              <summary>
-                <span>
-                  <SlidersHorizontal size={17} />
-                  有自己的想法？按偏好筛选
-                </span>
-                <span>
-                  一句话、天气与出发时间 <Plus size={15} />
-                </span>
-              </summary>
-              <div className="explore-tools-body">
-                <BriefComposer
-                  onApply={applyBrief}
-                  recognized={recognized}
-                  onQuickPlan={createQuickPlan}
-                />
-                {ready && (
-                  <WeatherPanel
-                    city={city}
-                    date={planOptions.date}
-                    scenario={weather}
-                    scenarioRequest={scenarioRequest}
-                    mode={weatherMode}
-                    onModeChange={setWeatherMode}
-                    onWeatherChange={(next) => applyWeather(next)}
-                    onDateChange={(date) =>
-                      setPlanOptions((p) => ({ ...p, date }))
-                    }
-                  />
-                )}
-              </div>
-            </details>
-            <section className="filters" id="explore" aria-label="活动筛选">
-              <div className="filter-top">
-                <div className="filter-label">
-                  <SlidersHorizontal size={17} />
-                  <b>你的周末，你来选</b>
-                </div>
-                <div className="filter-controls">
-                  <label>
-                    <span>
-                      <CloudSun size={14} />
-                      天气场景
-                    </span>
-                    <select
-                      aria-label="天气场景"
-                      value={weather}
-                      onChange={(e) => setScenario(e.target.value as Weather)}
-                    >
-                      <option>多云</option>
-                      <option>晴天</option>
-                      <option>下雨</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>
-                      <Ticket size={14} />
-                      人均活动预算
-                    </span>
-                    <select
-                      aria-label="人均活动预算"
-                      value={budget}
-                      onChange={(e) => {
-                        const amount = Number(e.target.value);
-                        setBudget(amount);
-                        setOnlySaved(false);
-                      }}
-                    >
-                      {![0, 50, 100, 200, 999].includes(budget) && (
-                        <option value={budget}>¥{budget} 以内</option>
-                      )}
-                      <option value={0}>免费也精彩</option>
-                      <option value={50}>¥50 以内</option>
-                      <option value={100}>¥100 以内</option>
-                      <option value={200}>¥200 以内</option>
-                      <option value={999}>预算不限</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>
-                      <Users size={14} />
-                      和谁出发
-                    </span>
-                    <select
-                      aria-label="和谁出发"
-                      value={people}
-                      onChange={(e) =>
-                        setPeople(Number(e.target.value) as 1 | 2 | 4)
-                      }
-                    >
-                      {![1, 2, 4].includes(people) && (
-                        <option value={people}>{people} 人同行</option>
-                      )}
-                      <option value={1}>一个人自在</option>
-                      <option value={2}>两个人刚好</option>
-                      <option value={4}>三五好友</option>
-                    </select>
-                  </label>
-                </div>
-                <label className="search">
-                  <Search size={17} />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="搜活动、地点、灵感"
-                    aria-label="搜索活动"
-                  />
-                  {query && (
-                    <button aria-label="清空搜索" onClick={() => setQuery("")}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </label>
-              </div>
-              <div className="filter-bottom">
-                <div className="category-list">
-                  {categories.map((c, i) => {
-                    const Icon = [Compass, Map, ShoppingBag, Music, Leaf][i];
-                    return (
-                      <button
-                        key={c}
-                        className={category === c ? "chip selected" : "chip"}
-                        onClick={() => {
-                          setCategory(c);
-                          setOnlySaved(false);
-                        }}
-                        aria-pressed={category === c && !onlySaved}
-                      >
-                        <Icon size={16} />
-                        {c === "全部" ? "全部灵感" : c}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  className={
-                    onlySaved ? "saved-toggle selected" : "saved-toggle"
-                  }
-                  onClick={() => setOnlySaved(!onlySaved)}
-                  aria-pressed={onlySaved}
-                >
-                  <Bookmark
-                    size={15}
-                    fill={onlySaved ? "currentColor" : "none"}
-                  />
-                  我的收藏{favorites.length > 0 && ` ${favorites.length}`}
-                </button>
-              </div>
-            </section>
-            <div className="discovery-layout">
-              <section className="recommendations">
-                <div className="section-heading">
-                  <div>
-                    <span className="kicker">CURATED FOR YOUR WEEKEND</span>
-                    <h2>
-                      {onlySaved ? "收藏的心动瞬间" : "这个周末，值得出门"}
-                      <span>{results.length} 个灵感</span>
-                    </h2>
-                  </div>
-                  <span className="sort-label">
-                    <Sparkles size={14} />
-                    按偏好匹配
-                  </span>
-                </div>
-                <div className="weather-tip">
-                  {weather === "下雨" ? (
-                    <CloudRain size={17} />
-                  ) : (
-                    <CloudSun size={17} />
-                  )}
-                  <p>
-                    {weather === "下雨"
-                      ? "下雨也能尽兴，已为你筛选室内活动。"
-                      : "给周末留一点松弛感，以下灵感已按预算与同行人数排序。"}
-                  </p>
-                  <span>{onlySaved ? "全部收藏" : city}</span>
-                </div>
-                {results.length ? (
-                  <div className="activity-grid">
-                    {results.map((a) => (
-                      <article className="activity-card" key={a.id}>
-                        <button
-                          className="card-image-button"
-                          onClick={() => setDetail(a)}
-                          aria-label={`查看${a.title}`}
-                        >
-                          <img
-                            src={a.image}
-                            alt={`${a.category}活动氛围配图`}
-                            loading="lazy"
-                          />
-                          <span className="image-category">
-                            {a.indoor
-                              ? "室内好去处"
-                              : a.category === "户外"
-                                ? "自然充电站"
-                                : "街区小漫游"}
-                          </span>
-                        </button>
-                        <button
-                          className={
-                            favorites.includes(a.id)
-                              ? "favorite liked"
-                              : "favorite"
-                          }
-                          aria-label={`${favorites.includes(a.id) ? "取消收藏" : "收藏"}${a.title}`}
-                          aria-pressed={favorites.includes(a.id)}
-                          onClick={() => toggleFavorite(a.id)}
-                        >
-                          <Heart
-                            size={18}
-                            fill={
-                              favorites.includes(a.id) ? "currentColor" : "none"
-                            }
-                          />
-                        </button>
-                        <div className="card-body">
-                          <div className="card-meta">
-                            <span>{a.category}</span>
-                            <span>
-                              <Clock3 size={12} />
-                              {a.duration}
-                            </span>
-                          </div>
-                          <button
-                            className="card-title"
-                            onClick={() => setDetail(a)}
-                          >
-                            <h3>{a.title}</h3>
-                            <ArrowUpRight size={18} />
-                          </button>
-                          <p className="card-subtitle">{a.subtitle}</p>
-                          <div className="location">
-                            <MapPin size={13} />
-                            {a.location}
-                          </div>
-                          <div className="reason">
-                            <Sparkles size={14} />
-                            <span>
-                              {a.reasons[0] || "为你的周末增添一点灵感"}
-                            </span>
-                          </div>
-                          <details className="match-reasons">
-                            <summary>为什么推荐给我？</summary>
-                            <ul>
-                              {a.reasons.map((reason) => (
-                                <li key={reason}>{reason}</li>
-                              ))}
-                            </ul>
-                          </details>
-                          <div className="card-bottom">
-                            <span className="cost">
-                              {price(a.price)}
-                              <small>
-                                {a.price ? " / 人起" : " / 活动门票"}
-                              </small>
-                            </span>
-                            <button
-                              className={
-                                plan.includes(a.id)
-                                  ? "add-button added"
-                                  : "add-button"
-                              }
-                              onClick={() => addPlan(a)}
-                            >
-                              {plan.includes(a.id) ? (
-                                <Check size={15} />
-                              ) : (
-                                <Plus size={15} />
-                              )}
-                              <span>
-                                {plan.includes(a.id) ? "已加入" : "加入周末"}
-                              </span>
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty">
-                    <Search size={35} />
-                    <h3>这次还没有刚好的灵感</h3>
-                    <p>
-                      试试调高预算、换个分类，或者清空搜索词。
-                      {weather === "下雨" && "雨天会自动避开户外活动。"}
-                    </p>
-                    <button className="primary" onClick={reset}>
-                      放宽筛选，再看看
-                    </button>
-                  </div>
-                )}
-                <p className="data-note">
-                  活动、费用与场次为设计示例；真实出发前请核实开放、预约及票价。图片为氛围参考。
-                </p>
-              </section>
-              <aside className="weekend-sidebar">
-                <div className="plan-card">
-                  <div className="aside-heading">
-                    <span className="icon-tile">
-                      <CalendarDays size={20} />
-                    </span>
-                    <div>
-                      <h3>我的周末清单</h3>
-                      <p>先心动，再出发</p>
-                    </div>
-                    <span className="count-pill">{planned.length}</span>
-                  </div>
-                  {planned.length ? (
-                    <>
-                      <div className="mini-plan">
-                        {planned.map((a, i) => (
-                          <div className="mini-plan-item" key={a.id}>
-                            <span>{String(i + 1).padStart(2, "0")}</span>
-                            <button onClick={() => setDetail(a)}>
-                              {a.title}
-                              <small>
-                                {a.city} · {price(a.price)}
-                              </small>
-                            </button>
-                            <button
-                              aria-label={`移除${a.title}`}
-                              onClick={() =>
-                                setPlan(plan.filter((x) => x !== a.id))
-                              }
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="budget-line">
-                        <span>参考总费用 / 人</span>
-                        <b>{price(planSummary.totalPerPerson)}</b>
-                      </div>
-                      {planSummary.overBudget && (
-                        <p className="sidebar-warning">
-                          超出人均总预算 ¥
-                          {Math.max(
-                            0,
-                            planSummary.totalPerPerson - planOptions.budget,
-                          )}
-                          ，可以调整活动或费用预留。
-                        </p>
-                      )}
-                      {weather === "下雨" && planned.some((a) => !a.indoor) && (
-                        <button
-                          className="rain-plan-warning"
-                          onClick={() => switchView("itinerary")}
-                        >
-                          <CloudRain size={16} />
-                          计划含户外活动，看看雨天替代方案 →
-                        </button>
-                      )}
-                      <button
-                        className="primary full"
-                        onClick={() => switchView("itinerary")}
-                      >
-                        查看我的周末 <ArrowRight size={16} />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="plan-empty">
-                      <div className="ticket-illustration">
-                        <Route size={26} />
-                        <span>
-                          YOUR NEXT
-                          <br />
-                          LITTLE ADVENTURE
-                        </span>
-                        <i>✦</i>
-                      </div>
-                      <p>
-                        看见喜欢的活动
-                        <br />
-                        点「加入周末」，慢慢攒一场出发
-                      </p>
-                      <span>不必安排很满，喜欢就好</span>
-                    </div>
-                  )}
-                  <div className="plan-footnote">
-                    <Leaf size={13} />
-                    把时间留给喜欢的事
-                  </div>
-                </div>
-                <button
-                  className="buddy-banner"
-                  onClick={() => switchView("teams")}
-                >
-                  <span className="kicker">BETTER TOGETHER</span>
-                  <h3>周末，找个搭子？</h3>
-                  <p>同频的人，让小事也有趣。</p>
-                  <div>
-                    <span className="buddy-dots">
-                      <i>林</i>
-                      <i>周</i>
-                      <i>+你</i>
-                    </span>
-                    <span className="round-arrow">
-                      <ArrowUpRight size={20} />
-                    </span>
-                  </div>
-                </button>
-                <button
-                  className="small-guide"
-                  onClick={() => setGuideDetail(guideSeeds[0])}
-                >
-                  <span className="icon-tile">
-                    <Coffee size={19} />
-                  </span>
-                  <div>
-                    <strong>学生党省钱出游指南</strong>
-                    <span>
-                      小预算，也有大快乐 <ArrowRight size={13} />
-                    </span>
-                  </div>
-                </button>
-              </aside>
-            </div>
-          </>
-        )}
+        {view === "discover" && <Explorer
+          city={city} category={category} budget={budget} weather={weather} people={people}
+          query={query} onlySaved={onlySaved} favorites={favorites} plan={plan} options={planOptions}
+          results={results} weatherSummary={weatherSummary}
+          onCategory={(value) => { setCategory(value); setOnlySaved(false); }}
+          onBudget={(value) => { setBudget(value); setOnlySaved(false); }}
+          onWeather={setScenario} onQuery={setQuery} onSaved={() => setOnlySaved(!onlySaved)}
+          onFavorite={toggleFavorite} onAdd={addPlan} onRemove={(id) => setPlan(plan.filter(p => p !== id))}
+          onDetail={setDetail} onCustomize={openStudio} onTour={startDemo} onPreview={setProposalPreview}
+          onPlan={() => switchView("itinerary")} onReset={reset}
+          tools={<><BriefComposer onApply={applyBrief} recognized={recognized} onQuickPlan={createQuickPlan}/>
+            {ready && <WeatherPanel city={city} date={planOptions.date} scenario={weather}
+              scenarioRequest={scenarioRequest} mode={weatherMode} onModeChange={setWeatherMode}
+              onWeatherChange={(next) => applyWeather(next)} onDateChange={(date) => setPlanOptions(p => ({...p,date}))}
+              onSummaryChange={setWeatherSummary}/>}</>}
+        />}
         {view === "teams" && (
           <>
             <PageHeading
@@ -1629,7 +1213,7 @@ export default function Home() {
             <div className="section-notice">
               <Users size={17} />
               <span>
-                组队交互演示：可发起、加入和分享邀请卡；报名状态保存在当前设备，不跨设备同步。
+                创建小队并分享邀请，朋友确认后把回执发回；导入回执，名单才会更新。示例小队仅用于了解流程。
               </span>
             </div>
             <div className="teams-grid">
@@ -1648,11 +1232,11 @@ export default function Home() {
                         <span className="image-category">
                           {t.host
                             ? "我发起的"
-                            : t.joined
-                              ? "已加入"
-                              : t.members >= t.capacity
-                                ? "已满员"
-                                : "正在找搭子"}
+                            : /^t\d+$/.test(t.id)
+                              ? "示例小队"
+                              : t.myResponse?.status === "confirmed"
+                                ? "已生成参加回执"
+                                : t.myResponse?.status === "withdrawn" ? "已生成撤回回执" : "收到的邀请"}
                         </span>
                         <span className="team-count">
                           <Users size={14} />
@@ -1675,7 +1259,7 @@ export default function Home() {
                         <div className="team-footer">
                           <span>
                             <i className="avatar">{t.host ? "我" : "友"}</i>
-                            {t.host ? "我发起的队伍" : "示例探索小队"}
+                            {t.host ? "我发起的队伍" : /^t\d+$/.test(t.id) ? "示例探索小队" : "朋友发来的邀请"}
                           </span>
                           <button
                             className="outline"
@@ -1781,7 +1365,7 @@ export default function Home() {
                                     0,
                                     60,
                                   ),
-                                text: `这次的周末体验${e.text.length > 900 ? "（打卡节选）" : ""}\n${e.text.slice(0,900)}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动参考：${price(a?.price || 0)}（示例）。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
+                                text: `这次的周末体验${e.text.length > 900 ? "（打卡节选）" : ""}\n${e.text.slice(0,900)}\n\n地点与交通\n${a?.location || "待补充"}\n${a?.transport || "待补充"}\n\n花费记录\n活动规划预留：¥${a?.price || 0}。我的实际花费：待补充。\n\n给下一位出发的人\n补充你的预约提醒、推荐时段或避坑建议。`,
                               });
                             }}
                           >
@@ -1938,95 +1522,15 @@ export default function Home() {
                 <X size={20} />
               </button>
             </div>
-            {detail && (
-              <>
-                <img
-                  className="dialog-hero"
-                  src={detail.image}
-                  alt="活动氛围配图"
-                />
-                <div className="dialog-content">
-                  <span className="kicker">
-                    {detail.city} / {detail.category} /{" "}
-                    {detail.indoor ? "室内" : "户外"}
-                  </span>
-                  <h2>{detail.title}</h2>
-                  <p className="dialog-description">{detail.description}</p>
-                  <div className="detail-facts">
-                    <span>
-                      <Ticket size={17} />
-                      {price(detail.price)} / 人
-                    </span>
-                    <span>
-                      <Clock3 size={17} />
-                      {detail.duration}
-                    </span>
-                    <span>
-                      <Users size={17} />
-                      当前 {people} 人同行
-                    </span>
-                  </div>
-                  <div className="address-card">
-                    <MapPin size={21} />
-                    <div>
-                      <strong>{detail.location}</strong>
-                      <p>{detail.transport}</p>
-                    </div>
-                    <a
-                      href={`https://uri.amap.com/search?keyword=${encodeURIComponent(detail.city + detail.location)}&callnative=0`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      地图 <ArrowUpRight size={15} />
-                    </a>
-                  </div>
-                  <h3 className="dialog-subheading">
-                    这样玩，刚刚好 <span>建议路线</span>
-                  </h3>
-                  <div className="timeline">
-                    {detail.route.map((r, i) => (
-                      <div key={i}>
-                        <time>{r.time}</time>
-                        <span className="timeline-dot" />
-                        <section>
-                          <b>{r.title}</b>
-                          <p>{r.detail}</p>
-                        </section>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="tips">
-                    <b>
-                      <Leaf size={16} />
-                      出发前的小提醒
-                    </b>
-                    {detail.tips.map((t) => (
-                      <p key={t}>· {t}</p>
-                    ))}
-                    <p>· 活动与费用为示例，请以场馆官方信息为准。</p>
-                  </div>
-                  <div className="dialog-actions">
-                    <button
-                      className="outline"
-                      onClick={() => openForm("team", detail)}
-                    >
-                      <Users size={16} />
-                      找搭子出发
-                    </button>
-                    <button className="primary" onClick={() => addPlan(detail)}>
-                      {plan.includes(detail.id) ? (
-                        <Check size={16} />
-                      ) : (
-                        <Plus size={16} />
-                      )}{" "}
-                      {plan.includes(detail.id)
-                        ? "已加入我的周末"
-                        : "加入我的周末"}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            {detail && <ActivityDetails activity={detail} people={people} selected={plan.includes(detail.id)} onAdd={() => addPlan(detail)} onTeam={() => openForm("team", detail)}/>}
+            {teamReply && <TeamReplyPreview team={teams.find(t => t.id === teamReply.teamId)} reply={teamReply} onCancel={close} onConfirm={(incoming) => {
+              const target=teams.find(t=>t.id===incoming.teamId);
+              if (!target) { notice("请在发起这个小队的浏览器中打开回执"); return; }
+              const review=reviewTeamReply(target,incoming);
+              if (!review.ok) { notice(review.error); return; }
+              setTeams(current=>current.map(t=>t.id===target.id ? review.nextTeam : t));
+              close(); setTeamDetail(review.nextTeam); setView("teams"); notice(review.message);
+            }}/>}
             {teamDetail &&
               (() => {
                 const a = activities.find(
@@ -2034,7 +1538,7 @@ export default function Home() {
                 )!;
                 return (
                   <div className="dialog-content">
-                    <span className="kicker">BETTER TOGETHER · 组队演示</span>
+                    <span className="kicker">BETTER TOGETHER · 邀请制小队</span>
                     <h2>{teamDetail.title}</h2>
                     <p className="dialog-description">
                       {a.title} · {a.city}
@@ -2073,7 +1577,7 @@ export default function Home() {
                       </p>
                     </div>
                     <p className="data-note">
-                      当前为本机组队演示，邀请链接可打开队伍信息，报名人数不会跨设备同步。请通过你们已有的联系方式确认同行。
+                      邀请与回执通过链接传递。朋友确认后把回执发回，发起人导入后更新名单；不提供实时同步。
                     </p>
                     <div className="dialog-actions">
                       <button
@@ -2091,23 +1595,9 @@ export default function Home() {
                           <Camera size={16} />
                           出发打卡
                         </button>
-                      ) : (
-                        <button
-                          className="primary"
-                          disabled={
-                            !teamDetail.joined &&
-                            teamDetail.members >= teamDetail.capacity
-                          }
-                          onClick={() => joinTeam(teamDetail)}
-                        >
-                          {teamDetail.joined
-                            ? "退出小队"
-                            : teamDetail.members >= teamDetail.capacity
-                              ? "小队已满"
-                              : "加入小队"}
-                        </button>
-                      )}
+                      ) : null}
                     </div>
+                    <TeamRelay team={teamDetail} example={/^t\d+$/.test(teamDetail.id)} baseUrl={siteUrl()} onChange={(next) => { setTeams(current => current.map(t => t.id === next.id ? next : t)); setTeamDetail(next); }} />
                     {teamDetail.host && (
                       <button
                         className="text-danger"
@@ -2142,6 +1632,16 @@ export default function Home() {
                   alt="攻略氛围配图"
                 />
                 <div className="guide-text pre-line">{guideDetail.text}</div>
+                <button className="outline full guide-to-plan" onClick={() => {
+                  const inspiration = guideDetail;
+                  close();
+                  setStudioInspiration({
+                    city: ["上海", "杭州", "北京"].includes(inspiration.city) ? inspiration.city as City : undefined,
+                    interests: inspiration.id === "g1" ? ["户外"] : inspiration.id === "g2" ? ["展览"] : undefined,
+                    weather: inspiration.id === "g2" ? "下雨" : undefined,
+                  });
+                  setModal("studio");
+                }}>参考这份灵感，定制我的周末 <ArrowRight size={16}/></button>
                 <button
                   className="primary full"
                   onClick={() => shareGuide(guideDetail)}
@@ -2189,6 +1689,7 @@ export default function Home() {
                 </span>
                 <h2>{shareCard.title}</h2>
                 <p className="pre-line dialog-description">{shareCard.text}</p>
+                <ShareQr url={shareCard.url} />
                 <label className="field">
                   分享链接
                   <input
@@ -2283,7 +1784,7 @@ export default function Home() {
                   </p>
                 )}
                 <p className="data-note">
-                  创建本机演示小队，可分享邀请卡；报名状态不联网同步。
+                  创建后可分享邀请，朋友生成回执发回；导入后更新名单，不会自动发送消息。
                 </p>
                 <button className="primary full" type="submit">
                   创建小队 <ArrowRight size={16} />
@@ -2504,10 +2005,11 @@ export default function Home() {
             )}
             {modal === "studio" && (
               <WeekendStudio
-                city={city}
+                city={studioInspiration?.city || city}
                 people={people}
-                weather={weather}
+                weather={studioInspiration?.weather || weather}
                 initialOptions={planOptions}
+                initialInterests={studioInspiration?.interests}
                 onAdopt={adoptProposal}
                 onClose={close}
               />

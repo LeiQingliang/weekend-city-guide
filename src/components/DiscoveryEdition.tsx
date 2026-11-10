@@ -256,7 +256,7 @@ export function ProposalPreview({
                 <strong>{a.title}</strong>
                 <span>{a.location}</span>
               </span>
-              <b>{a.price ? `¥${a.price}` : "免费"}</b>
+              <b>{a.evidence.pricing.kind === "official-free" ? "常设免费" : `预留 ¥${a.price}`}</b>
             </div>
           ))}
         </div>
@@ -285,7 +285,7 @@ export function ProposalPreview({
           <p className="proposal-tradeoffs">{proposal.tradeoffs.join("；")}</p>
         )}
         <p className="proposal-note">
-          这是可修改的出游草案。活动和价格为示例，餐饮、交通与用时为估算；出发前请核实场次与开放信息。
+          地点可查来源，费用按规划预留计算。票价、场次与临时开放安排请向官方确认；餐饮、交通与用时为估算。
         </p>
       </div>
       <div className="proposal-actions">

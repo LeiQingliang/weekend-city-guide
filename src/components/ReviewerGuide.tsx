@@ -58,18 +58,18 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
         <div className="reviewer-decisions">
           <article>
             <Compass size={21} aria-hidden="true" />
-            <h4>让推荐说得清</h4>
-            <p>先收集城市、偏好和预算，再说明每个活动为什么适合。</p>
+            <h4>让选择有依据</h4>
+            <p>真实地点附来源，地图帮助看位置，方案说明为什么适合你。</p>
           </article>
           <article>
             <Wallet size={21} aria-hidden="true" />
             <h4>把一整天算进去</h4>
-            <p>活动、餐饮与交通一起看，调整顺序和预算时同步重算。</p>
+            <p>活动、餐饮与交通一起预留，开放时间与等待也进入计划。</p>
           </article>
           <article>
             <Users size={21} aria-hidden="true" />
-            <h4>给变化留个余地</h4>
-            <p>雨天有室内备选，计划可以分享，同行之后还能留下记录。</p>
+            <h4>把同行约明白</h4>
+            <p>邀请发给朋友，参加回执发回来，确认名单后一起出发。</p>
           </article>
         </div>
       </section>
@@ -79,7 +79,7 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
         aria-labelledby="reviewer-walkthrough-title"
       >
         <div className="reviewer-section-heading">
-          <h3 id="reviewer-walkthrough-title">用 90 秒，走一遍完整体验</h3>
+          <h3 id="reviewer-walkthrough-title">用 90 秒，体验一次周末计划</h3>
           <span className="reviewer-time-pill">3 个小步骤</span>
         </div>
         <ol className="reviewer-steps">
@@ -89,7 +89,7 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
             </span>
             <div>
               <h4>选一份想出门的方案</h4>
-              <p>给出偏好，看看推荐理由，把心动的地方排进一天。</p>
+              <p>看地点、推荐理由与全天预留，把心动的地方排进一天。</p>
             </div>
             <span className="reviewer-step-time">25 秒</span>
           </li>
@@ -108,8 +108,8 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
               03
             </span>
             <div>
-              <h4>约同行，也留下一点回忆</h4>
-              <p>分享行程给朋友，再用一句话完成一次周末打卡。</p>
+              <h4>带走计划，留下一点回忆</h4>
+              <p>用链接或二维码分享行程，再用一句话完成周末打卡。</p>
             </div>
             <span className="reviewer-step-time">35 秒</span>
           </li>
@@ -127,13 +127,13 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
         aria-labelledby="reviewer-scope-title"
       >
         <div className="reviewer-section-heading">
-          <h3 id="reviewer-scope-title">这个雏形，做到哪一步</h3>
+          <h3 id="reviewer-scope-title">继续探索这些细节</h3>
         </div>
         <dl>
           <div>
-            <dt>活动与城市</dt>
+            <dt>地点与地图</dt>
             <dd>
-              上海、杭州、北京。活动、票价和场次为设计示例，不代表实际可预约或购买。
+              三座城市、12 个有来源的真实地点、11 个地图参考点。地图未加载时，仍可看列表或打开高德搜索。
             </dd>
           </div>
           <div>
@@ -143,22 +143,28 @@ export function ProductGuide({ onStart, onExport }: ProductGuideProps) {
             </dd>
           </div>
           <div>
-            <dt>推荐与排程</dt>
+            <dt>时间与费用</dt>
             <dd>
-              使用透明的本地规则，未调用大模型。停留与转场是估算，出发前需核实开放时间和交通。
+              已知常规开放时间参与排程；各站费用可自行校正，转场仍是估算。演出与临时市集需另查实际场次。
             </dd>
           </div>
           <div>
-            <dt>记录与同行</dt>
+            <dt>邀请与回执</dt>
             <dd>
-              记录保存在当前浏览器，组队人数为本机演示。分享的是内容快照，不会自动同步后续修改。
+              退出导览后可创建自己的小队。朋友生成回执并手动发回，你核对后导入名单；没有实时同步、身份核验或自动消息。
+            </dd>
+          </div>
+          <div>
+            <dt>记录与分享</dt>
+            <dd>
+              打卡可整理成可编辑攻略，记录保存在本机。链接和本地二维码传递快照，可转发、不加密，后续修改不会同步。
             </dd>
           </div>
         </dl>
       </section>
 
       <div className="reviewer-footer">
-        <p>从一个周末场景出发，先把选择、计划和分享连接起来。</p>
+        <p>AI Coding 辅助设计与实现；推荐和一句话解析使用可解释的本地规则，未调用大模型。</p>
         <button type="button" className="reviewer-export" onClick={onExport}>
           <Download size={16} aria-hidden="true" />
           备份我的本机记录

@@ -6,6 +6,11 @@ import {
   type Weather,
 } from "./data";
 import { asset } from "./paths";
+import {
+  sanitizeRelayMember,
+  sanitizeRelayMembers,
+  type RelayMember,
+} from "./teamRelay";
 export const STORAGE_KEY = "chumenla-weekend-v1";
 export type StoredTeam = {
   id: string;
@@ -18,6 +23,8 @@ export type StoredTeam = {
   host: boolean;
   meeting: string;
   note: string;
+  confirmedMembers?: RelayMember[];
+  myResponse?: RelayMember;
 };
 export type StoredEntry = {
   id: string;
@@ -89,17 +96,28 @@ export function sanitizeSnapshot(value: unknown): Snapshot {
     )
     .map((t) => {
       const capacity = Math.round(numeric(t.capacity, 2, 12, 4));
+      const confirmedMembers = Array.isArray(t.confirmedMembers)
+        ? sanitizeRelayMembers(t.confirmedMembers, capacity)
+        : undefined;
+      const myResponse = sanitizeRelayMember(t.myResponse);
       return {
         id: text(t.id, 80),
         activityId: String(t.activityId),
         title: text(t.title, 60) || "周末探索小队",
         date: String(t.date),
         capacity,
-        members: Math.round(numeric(t.members, 1, capacity, 1)),
-        joined: !!t.joined,
+        members: t.host
+          ? 1 +
+            (confirmedMembers || []).filter(
+              (member) => member.status === "confirmed",
+            ).length
+          : Math.round(numeric(t.members, 1, capacity, 1)),
+        joined: myResponse ? myResponse.status === "confirmed" : !!t.joined,
         host: !!t.host,
         meeting: text(t.meeting, 100),
         note: text(t.note, 500),
+        confirmedMembers,
+        myResponse,
       };
     });
   const entries = list("entries")

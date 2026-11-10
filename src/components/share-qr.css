@@ -1,0 +1,128 @@
+.share-qr {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #e0e6db;
+  border-radius: 12px;
+  background: #f8faf5;
+  color: #253e34;
+}
+
+.share-qr-image-button {
+  display: block;
+  width: 140px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: #fff;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.share-qr-image-button:focus-visible {
+  outline: 3px solid #24654b;
+  outline-offset: 4px;
+}
+
+.share-qr-image-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.share-qr-copy {
+  min-width: 0;
+}
+
+.share-qr-copy h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: #173e32;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.share-qr-copy p {
+  margin: 0;
+  color: #56675e;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.share-qr-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 9px;
+  color: #56675e;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.share-qr-copy svg,
+.share-qr-hint svg,
+.share-qr-fallback > svg {
+  flex-shrink: 0;
+}
+
+.share-qr-expanded {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.share-qr-expanded .share-qr-image-button {
+  width: 260px;
+  cursor: zoom-out;
+}
+
+.share-qr-expanded .share-qr-copy h3 {
+  justify-content: center;
+}
+
+.share-qr-fallback {
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.share-qr-fallback > svg {
+  margin-top: 3px;
+  color: #56675e;
+}
+
+@media (max-width: 480px) {
+  .share-qr {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .share-qr-copy h3 {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .share-qr:not(.share-qr-fallback) {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+  }
+
+  .share-qr:not(.share-qr-fallback) .share-qr-copy h3 {
+    justify-content: center;
+  }
+}

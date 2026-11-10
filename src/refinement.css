@@ -1,0 +1,294 @@
+/* Shared refinement: readable Chinese text, compact controls, clear source and action hierarchy. */
+:root { --green:#24543e; --ink:#173e32; --muted:#64745f; --line:#dfe5d8; }
+.main { max-width:1392px; padding-top:25px; }
+.nav-wrap { max-width:1392px; }
+.header { background:#fffefa; }
+.nav-item { font-size:13px; }
+.primary,.outline { border-radius:8px; }
+.team-body>.kicker,.guide-card .kicker,.journal-card .kicker { font-size:12px; letter-spacing:.4px; }
+.team-body>p,.team-info { font-size:13px; color:#5c7057; }
+.team-cover>span,.team-footer,.team-footer button { font-size:12px; }
+.team-footer button { min-height:40px; }
+.team-card,.guide-card,.journal-card { border-radius:12px; border-color:#dfe5d7; }
+.page-heading h1 { font-size:34px; letter-spacing:-1px; }
+.page-heading p { font-size:14px; color:#607258; }
+.data-note { font-size:12px; line-height:1.8; color:#69775e; }
+.dialog:has(.activity-detail) { display:flex; flex-direction:column; overflow:hidden; max-height:calc(100dvh - 48px); }
+.dialog:has(.activity-detail)>.dialog-toolbar { flex-shrink:0; }
+.activity-detail { min-height:0; display:flex; flex-direction:column; flex:1; }
+.activity-detail-scroll { min-height:0; overflow:auto; overscroll-behavior:contain; }
+.activity-detail-hero { position:relative; height:210px; background:#e8ede0; }
+.activity-detail-hero>img { width:100%; height:100%; object-fit:cover; }
+.activity-detail-hero>span { position:absolute; bottom:15px; left:26px; right:26px; display:flex; justify-content:space-between; gap:15px; font-size:13px; color:white; text-shadow:0 1px 5px #000c; letter-spacing:1px; }
+.activity-detail-hero small { font-size:11px; letter-spacing:0; }
+.activity-detail-body { padding:27px 30px 24px; }
+.activity-detail-eyebrow { display:flex; align-items:center; gap:6px; font-size:11px; color:#63825b; }
+.activity-detail-eyebrow i { font-style:normal; margin-left:auto; color:#778570; }
+.activity-detail-body h2 { font-size:29px; line-height:1.4; letter-spacing:-.8px; margin:12px 0 7px; color:#173e32; }
+.activity-detail-subtitle { color:#6c7b61; font-size:13px; line-height:1.8; }
+.activity-detail-facts { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin:17px 0 21px; font-size:12px; color:#51694a; }
+.activity-detail-facts span { display:flex; gap:5px; align-items:center; }
+.activity-detail-facts span:last-child { padding:5px 8px; border-radius:5px; background:#edf2e4; font-size:11px; }
+.activity-detail-cost { display:flex; gap:25px; background:#f1f5e7; border:1px solid #dfe8d1; padding:18px 19px; border-radius:9px; align-items:center; }
+.activity-detail-cost>div { flex-shrink:0; }
+.activity-detail-cost small { display:block; color:#7b866d; font-size:11px; margin-bottom:5px; }
+.activity-detail-cost strong { font-size:23px; color:#31562e; }
+.activity-detail-cost p { font-size:11px; color:#657958; line-height:1.8; }
+.activity-detail-address { display:flex; align-items:center; gap:12px; padding:20px 0; border-bottom:1px solid #e0e7d6; }
+.activity-detail-address>svg { color:#658756; }
+.activity-detail-address>div { flex:1; min-width:0; }
+.activity-detail-address strong { display:block; font-size:13px; color:#3b5631; line-height:1.7; font-weight:550; }
+.activity-detail-address span { display:block; color:#7c886f; font-size:11px; line-height:1.8; margin-top:3px; }
+.activity-detail-address>a { display:flex; align-items:center; gap:4px; color:#426b35; font-size:11px; white-space:nowrap; }
+.activity-detail-description { margin-top:19px; font-size:13px; line-height:1.9; color:#657358; }
+.activity-detail-section { margin-top:26px; }
+.activity-detail-section h3 { color:#244c2f; font-size:16px; line-height:1.7; font-weight:600; }
+.activity-detail-section h3 small { font-size:10px; color:#839172; font-weight:400; margin-left:9px; }
+.activity-detail-checks { margin-top:14px; }
+.activity-detail-checks>section { display:flex; gap:12px; padding:15px 0; border-bottom:1px solid #e6eadf; }
+.activity-detail-checks>section>svg { margin-top:3px; color:#648454; }
+.activity-detail-checks b { font-size:13px; color:#395b36; font-weight:550; }
+.activity-detail-checks p { font-size:12px; color:#6c7a5c; line-height:1.85; margin-top:5px; }
+.activity-official-link { margin-top:14px; display:flex; justify-content:space-between; align-items:center; padding:12px 15px; border:1px solid #cbdcbc; background:#f4f7ed; border-radius:7px; color:#3a6333; font-size:12px; }
+.activity-detail-route { list-style:none; padding:0; margin:15px 0 0; }
+.activity-detail-route li { display:flex; align-items:start; gap:13px; padding:10px 0; }
+.activity-detail-route li>span { border:1px solid #d6e2c7; border-radius:50%; width:28px; height:28px; display:grid; place-items:center; font-size:10px; color:#64824f; flex-shrink:0; }
+.activity-detail-route b { font-size:13px; font-weight:550; color:#3f5d34; }
+.activity-detail-route p { font-size:12px; line-height:1.7; margin-top:5px; color:#71805f; }
+.activity-detail-tips { display:flex; gap:11px; background:#f5f5ed; border-radius:9px; padding:17px; margin-top:21px; color:#637c4d; }
+.activity-detail-tips>svg { margin-top:2px; }
+.activity-detail-tips b { font-size:12px; font-weight:550; }
+.activity-detail-tips ul { margin:10px 0 0; padding-left:14px; }
+.activity-detail-tips li { font-size:11px; line-height:1.9; margin-top:3px; }
+.activity-detail-sources { margin-top:23px; font-size:11px; color:#74815f; }
+.activity-detail-sources summary { display:flex; align-items:center; gap:6px; cursor:pointer; padding:9px 0; list-style:none; }
+.activity-detail-sources summary::-webkit-details-marker { display:none; }
+.activity-detail-sources summary>span { margin-left:auto; font-size:10px; }
+.activity-detail-sources>p { line-height:1.8; margin:5px 0 10px; }
+.activity-detail-sources>a { padding:10px 0; display:flex; gap:12px; align-items:center; justify-content:space-between; border-top:1px solid #e3e8d9; }
+.activity-detail-sources small { display:block; margin-top:4px; font-size:10px; }
+.activity-detail-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-shrink:0; background:#fffef9; border-top:1px solid #dde5d2; padding:17px 30px; box-shadow:0 -6px 15px #2a4e2605; }
+.activity-detail-actions button { min-height:44px; min-width:120px; justify-content:center; font-size:13px; }
+.activity-detail-actions .primary { min-width:190px; }
+.team-relay input { font-size:14px; }
+.team-relay .team-relay-note { font-size:12px; }
+.itinerary-transfer { font-size:12px; }
+.itinerary .data-note,.itinerary-page .data-note { font-size:12px; }
+@media(max-width:680px) {
+ .main { padding-top:22px; }
+ .page-heading h1 { font-size:26px; }
+ .page-heading p { font-size:13px; }
+ .team-body>.kicker,.guide-card .kicker,.journal-card .kicker { font-size:12px; }
+ .team-body>p { font-size:13px; }
+ .team-footer button { font-size:12px; }
+ .dialog:has(.activity-detail) { max-height:calc(100dvh - 26px); }
+ .activity-detail-hero { height:170px; }
+ .activity-detail-hero>span { left:20px; right:20px; font-size:12px; }
+ .activity-detail-body { padding:21px 20px 22px; }
+ .activity-detail-eyebrow { font-size:11px; gap:5px; flex-wrap:wrap; }
+ .activity-detail-eyebrow i { font-size:10px; }
+ .activity-detail-body h2 { font-size:25px; }
+ .activity-detail-subtitle { font-size:12px; }
+ .activity-detail-facts { gap:12px; font-size:12px; }
+ .activity-detail-cost { display:block; padding:15px; }
+ .activity-detail-cost>div { display:flex; align-items:center; justify-content:space-between; }
+ .activity-detail-cost p { margin-top:10px; font-size:12px; }
+ .activity-detail-address { flex-wrap:wrap; gap:9px; }
+ .activity-detail-address>a { margin-left:29px; font-size:12px; }
+ .activity-detail-address>div { flex-basis:calc(100% - 30px); }
+ .activity-detail-address span { font-size:12px; }
+ .activity-detail-section h3 { font-size:16px; }
+ .activity-detail-section h3 small { display:block; margin:3px 0 0; font-size:11px; }
+ .activity-detail-checks p,.activity-detail-route p { font-size:13px; }
+ .activity-official-link { font-size:13px; min-height:44px; }
+ .activity-detail-tips li { font-size:12px; }
+ .activity-detail-sources { font-size:12px; }
+ .activity-detail-actions { padding:14px 20px; gap:10px; }
+ .activity-detail-actions button { flex:1; min-width:0; font-size:12px; }
+ .activity-detail-actions .primary { flex:1.6; min-width:0; }
+ .data-note { font-size:12px; }
+}
+
+/* V4 visual review: decision information stays readable at every viewport. */
+.explorer-pick-label,
+.explorer-pick-bottom small,
+.explorer-pick-bottom > span:last-child,
+.explorer-intent small,
+.explorer-intent i,
+.explorer-view button,
+.explorer-select select,
+.explorer-select small,
+.explorer-context-note,
+.explorer-card-category,
+.explorer .card-image-button > .explorer-image-note,
+.explorer-place-line > button,
+.explorer-place-line > span,
+.explorer-card-metadata,
+.explorer-card-metadata span:last-child,
+.explorer-card-bottom > span > small,
+.explorer .add-button,
+.explore-map-top > small,
+.explore-map-canvas .leaflet-control-attribution,
+.map-loading,
+.explore-map-places > button > span:first-child,
+.explore-map-places small,
+.explore-map-link,
+.explore-map-note,
+.explorer-mini-plan small,
+.explorer-advanced > summary > span:last-child,
+.explorer-plan-dock > span,
+.explorer-plan-dock > b {
+  font-size: 12px;
+}
+
+.explorer-intent b,
+.explorer-intent .explorer-weather b,
+.explore-map-places b,
+.explorer-mini-plan b {
+  font-size: 13px;
+}
+
+.explorer-pick-label > span:last-child {
+  font-size: 9px;
+}
+
+.explorer-pick-label,
+.explorer-pick-bottom small,
+.explorer-intent small,
+.explorer-intent i,
+.explorer-context-note,
+.explorer-place-line > button,
+.explorer-card-description,
+.explorer-card-metadata,
+.explorer-card-metadata span:last-child,
+.explorer-card-bottom > span > small,
+.explore-map-top > small,
+.explore-map-places small,
+.explore-map-note,
+.explorer-mini-plan small,
+.explorer-mini-plan p,
+.explorer-advanced > summary > span:last-child {
+  color: #56675e;
+}
+
+.explorer-context-note > svg,
+.explore-map-link > svg,
+.explorer-pick-bottom > span:last-child {
+  flex-shrink: 0;
+}
+
+.explore-map-places > button {
+  min-height: 48px;
+  align-items: flex-start;
+}
+
+.explore-map-places > button > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.explore-map-link,
+.explore-map-note {
+  line-height: 1.75;
+}
+
+.activity-detail-hero small,
+.activity-detail-eyebrow,
+.activity-detail-eyebrow i,
+.activity-detail-facts span:last-child,
+.activity-detail-cost small,
+.activity-detail-address > a,
+.activity-detail-section h3 small,
+.activity-detail-route li > span,
+.activity-detail-sources,
+.activity-detail-sources summary > span,
+.activity-detail-sources small {
+  font-size: 12px;
+}
+
+.activity-detail-cost p,
+.activity-detail-address span,
+.activity-detail-checks p,
+.activity-detail-route p,
+.activity-detail-tips b,
+.activity-detail-tips li {
+  font-size: 13px;
+}
+
+.activity-detail-eyebrow,
+.activity-detail-eyebrow i,
+.activity-detail-subtitle,
+.activity-detail-cost small,
+.activity-detail-cost p,
+.activity-detail-address span,
+.activity-detail-description,
+.activity-detail-section h3 small,
+.activity-detail-checks p,
+.activity-detail-route p,
+.activity-detail-tips,
+.activity-detail-sources {
+  color: #56675e;
+}
+
+.activity-detail-cost p,
+.activity-detail-address span,
+.activity-detail-sources > p {
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.activity-detail-sources summary {
+  min-height: 44px;
+}
+
+@media (min-width: 961px) {
+  .explorer .card-image-button {
+    aspect-ratio: 2.15;
+  }
+}
+
+@media (max-width: 680px) {
+  .explorer-cover {
+    min-height: 205px;
+  }
+
+  .explorer-intent {
+    margin-bottom: 20px;
+  }
+
+  .explorer-heading p,
+  .explorer-card-description {
+    font-size: 13px;
+  }
+
+  .explorer-intent b,
+  .explorer-intent .explorer-weather b {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .explorer .chip,
+  .explorer .saved-toggle,
+  .explorer-section-head h2 small,
+  .explorer-select select,
+  .explorer-view button {
+    font-size: 12px;
+  }
+
+  .explorer .explorer-pick-bottom {
+    gap: 8px;
+  }
+
+  .explorer-pick-bottom > span:first-child {
+    min-width: 0;
+  }
+
+  .explorer .favorite {
+    width: 40px;
+    height: 40px;
+  }
+
+  .explorer-advanced > summary {
+    flex-wrap: wrap;
+  }
+}

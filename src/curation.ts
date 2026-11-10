@@ -117,6 +117,7 @@ function candidatesFor(brief: WeekendBrief): Candidate[] {
     const itinerary = buildItinerary(items, options);
     if (
       itinerary.overBudget ||
+      itinerary.openingConflicts.length > 0 ||
       itinerary.totalMinutes > brief.maxDurationMinutes
     )
       continue;
@@ -196,16 +197,13 @@ function toProposal(
       : brief.people >= 3 && companionMatches.length
         ? `${brief.people} 人同行，安排可以一起体验的${companionMatches.join("、")}`
         : `${brief.people} 人同行，共用一份路线与时间安排`;
-  const actionLabels = {
-    展览: "看一场展",
-    市集: "逛个市集",
-    户外: "去散个步",
-    演出: "听一场现场",
-  };
+  const actionLabel = (item: Activity) => item.category === "市集"
+    ? item.evidence.kind === "route-inspiration" ? "逛逛街区" : "逛个市场"
+    : { 展览: "看一场展", 户外: "去散个步", 演出: "听一场现场" }[item.category];
   const routeTitle =
     candidate.items.length === 1
       ? candidate.items[0].title
-      : `${actionLabels[candidate.items[0].category]}，再${actionLabels[candidate.items[1].category]}`;
+      : `${actionLabel(candidate.items[0])}，再${actionLabel(candidate.items[1])}`;
   const title =
     index === 0
       ? routeTitle
@@ -220,7 +218,7 @@ function toProposal(
       : brief.interests.length
         ? "预算与时间优先，这份方案暂未覆盖所选兴趣"
         : "按你的预算与时间，组合城市里的小惊喜",
-    `人均 ¥${candidate.total}，已含餐饮 ¥${brief.mealBudget} + 交通 ¥${brief.transportBudget}，还余 ¥${money(brief.budget - candidate.total)}`,
+    `规划人均 ¥${candidate.total}，含餐饮 ¥${brief.mealBudget} + 交通 ¥${brief.transportBudget}，按预留金额还余 ¥${money(brief.budget - candidate.total)}`,
     `${companionReason}；${brief.people} 人参考合计 ¥${money(candidate.total * brief.people)}`,
     `约 ${durationLabel(candidate.duration)}，预计 ${candidate.end.slice(11)} 结束，在你的可用时间内`,
     brief.weather === "下雨"
@@ -249,6 +247,10 @@ function toProposal(
     tradeoffs.push("站间预留 25 分钟，实际交通时间需出发前核实");
   if (candidate.items.some((item) => item.category === "演出"))
     tradeoffs.push("演出按 19:00 后估排，需另行确认真实场次与票务");
+  if (candidate.items.some((item) => item.price > 0 && item.evidence.pricing.kind === "planning-estimate"))
+    tradeoffs.push("含未核验票价的规划预留，实际花费需以官方当期价格复算");
+  if (candidate.items.some((item) => item.evidence.kind === "route-inspiration"))
+    tradeoffs.push("街区真实，但未确认市集场次；可先逛街区，再按公告安排活动");
   if (!tradeoffs.length)
     tradeoffs.push("只安排一处目的地；餐饮已预留费用，用餐时间由你决定");
   return {
@@ -284,22 +286,29 @@ export function recommendWeekendProposals(
 export function explainWeekendConstraints(brief: WeekendBrief): string[] {
   if (!isValidBrief(brief))
     return ["请填写有效的城市、日期、时间、人数和非负预算，再看看周末的可能。"];
-  const pool = activities.filter(
+  const weatherPool = activities.filter(
     (item) =>
       item.city === brief.city && (brief.weather !== "下雨" || item.indoor),
   );
+  const pool = weatherPool.filter(item => !buildItinerary([item], optionsFor(brief)).openingConflicts.length);
+  if (!pool.length) return [
+    "按已知常规开放安排，当前日期或出发时间没有可完整游玩的目的地；请换一天、提前出发，或核实场馆特别开放公告。",
+    ...(brief.weather === "下雨" ? ["雨天仍排除室外地点，不用室外活动填补空缺。"] : []),
+  ];
   const minimumCost =
     Math.min(...pool.map((item) => item.price)) +
     brief.mealBudget +
     brief.transportBudget;
   const reasons: string[] = [];
+  if (pool.length < weatherPool.length)
+    reasons.push("已排除常规闭馆日、错过入场时间或无法在闭馆前完成的场馆。");
   if (brief.budget < brief.mealBudget + brief.transportBudget)
     reasons.push(
       `餐饮与交通已预留 ¥${brief.mealBudget + brief.transportBudget}/人，超过了当前全天预算 ¥${brief.budget}。`,
     );
   else if (brief.budget < minimumCost)
     reasons.push(
-      `在当前${brief.weather}条件下，最省的可选活动加上餐饮、交通约需 ¥${minimumCost}/人。`,
+      `在当前${brief.weather}条件下，最低规划预留加上餐饮、交通为 ¥${minimumCost}/人；票价仍以官方公告为准。`,
     );
   const shortest = Math.min(
     ...pool.map(
