@@ -24,7 +24,8 @@ import {
   type WeekendProposal,
 } from "../curation";
 import { reviseIntent, type IntentRevision } from "../intent";
-import { intentEndpoint, requestModelRevision } from "../intentGateway";
+import { requestModelRevision } from "../intentGateway";
+import { modelEndpoint } from "../runtime";
 import "./intent-planner.css";
 
 type Props = {
@@ -40,7 +41,6 @@ type Props = {
 const minutesLabel = (n: number) =>
   `${Math.floor(n / 60) ? `${Math.floor(n / 60)}小时` : ""}${n % 60 ? `${n % 60}分钟` : ""}`;
 const interests: WeekendInterest[] = ["展览", "市集", "户外", "演出"];
-const modelEndpoint = intentEndpoint(import.meta.env.VITE_INTENT_API_URL);
 const clone = (brief: WeekendBrief): WeekendBrief => ({
   ...brief,
   interests: [...brief.interests],

@@ -11,6 +11,11 @@ import {
 } from "lucide-react";
 import { calculateBusiness, type BusinessInputs } from "../business";
 import { clearInsights, readInsights } from "../insights";
+import {
+  modelEndpoint,
+  planningModeDescription,
+  planningModeLabel,
+} from "../runtime";
 import "./product-strategy.css";
 
 const assumptions: BusinessInputs = {
@@ -161,16 +166,16 @@ export default function ProductStrategy({
               “轮椅友好”“不能排队”等未覆盖要求会持续显示，需用户确认另行核对后才能采用。关闭草稿不改原计划；采用后用出发速览继续执行。
             </p>
             <p>
-              <b>适合交给 AI：</b>
-              理解含糊需求、解释方案取舍、把打卡整理成攻略草稿。
+              <b>模型适用范围：</b>
+              理解含糊的出行条件。方案取舍说明由规则生成，打卡转攻略使用可编辑的本地模板。
             </p>
             <p>
               <b>必须可靠校验：</b>
               预算、营业时间、天气约束、信息来源和用户确认；不让生成内容代替实时票务事实。
             </p>
             <p>
-              <b>当前实现：</b>AI Coding
-              辅助研发；公开站默认以本地规则运行，界面明确标注模式。模型接入通过独立后端理解条件，活动、费用和时间仍需校验；在线失败时显示降级原因，保留可用的规则基线。
+              <b>当前运行：{planningModeLabel}。</b>
+              {planningModeDescription}产品由 AI Coding 辅助研发。
             </p>
             <p>
               <a
@@ -480,7 +485,11 @@ export default function ProductStrategy({
           美团 Agent 评测白皮书 <ArrowUpRight size={14} />
         </a>
         <p>
-          本产品与美团无官方关联。模型、真实订单、身份认证和实时组队后台尚未接入；人工核对是个人确认，未代替商家预约。
+          本产品与美团无官方关联。
+          {modelEndpoint
+            ? "模型仅理解出行条件，不核验票务或导航事实。"
+            : "当前未接入大模型。"}
+          真实订单、身份认证和实时组队后台尚未接入；人工核对是个人确认，未代替商家预约。
         </p>
       </details>
       <button className="strategy-text-button" onClick={onExport}>

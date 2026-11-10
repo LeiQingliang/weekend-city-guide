@@ -15,6 +15,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { useState } from "react";
+import { planningModeDescription, planningModeLabel } from "../runtime";
 
 export function BriefComposer({
   onApply,
@@ -93,7 +94,7 @@ export function BriefComposer({
       <details className="brief-explain">
         <summary>它如何理解我的想法？</summary>
         <p>
-          按城市、活动类型、人数、天气和金额识别常用表达，再筛选本地活动示例。未识别的条件请用下方筛选补充；此处使用透明规则，不是大模型对话。
+          按城市、活动类型、人数、天气和金额识别常用表达，再筛选地点资料。未识别的条件请用下方筛选补充；此处使用透明规则，不是大模型对话。
         </p>
       </details>
     </section>
@@ -175,12 +176,16 @@ export function Showcase({
         <article>
           <Users />
           <h3>让分享有内容</h3>
-          <p>朋友可打开同一份行程、邀请卡或攻略。小队报名仅为本机模拟。</p>
+          <p>
+            朋友可打开行程、邀请卡或攻略；参加意向由朋友回传回执，发起人确认导入，不实时同步。
+          </p>
         </article>
         <article>
           <ShieldCheck />
           <h3>让边界说清楚</h3>
-          <p>天气获取失败有明确提示；活动为示例，个人记录保存在本机。</p>
+          <p>
+            天气获取失败有明确提示；地点附来源，票价与场次待核对，个人记录保存在本机。
+          </p>
         </article>
       </div>
       <div className="showcase-scope">
@@ -192,7 +197,8 @@ export function Showcase({
         </p>
         <h3>当前范围</h3>
         <p>
-          活动、票价和场次为设计示例。推荐与行程采用本地规则，未调用大模型；交通时间是预留估算。没有跨设备报名数据库、实时票务或支付。天气以数据源实际返回为准，不可用时可手动选择天气场景。
+          {planningModeLabel}。{planningModeDescription}
+          地点附信息来源，票价和场次仍需向官方确认；交通时间是预留估算，地图提供位置参考。打卡整理攻略使用本地模板，没有实时组队数据库、票务或支付。天气以数据源实际返回为准，不可用时可手动选择天气场景。
         </p>
       </div>
       <div className="showcase-actions">

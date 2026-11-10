@@ -39,6 +39,7 @@ import {
 } from "../curation";
 import type { PlanOptions } from "../planner";
 import { asset } from "../paths";
+import { planningModeLabel } from "../runtime";
 import ExploreMap from "./ExploreMap";
 
 type Result = Activity & { reasons: string[] };
@@ -161,7 +162,7 @@ export default function Explorer(p: Props) {
               placeholder={`${p.city}，周六两个人，人均100元，下午想看展`}
             />
             <div className="intent-launch-actions">
-              <small>规划助手 · 当前为本地规则模式</small>
+              <small>规划助手 · {planningModeLabel}</small>
               <button type="submit">
                 一起规划 <ArrowRight size={16} />
               </button>
